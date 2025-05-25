@@ -1,33 +1,36 @@
-class Customer {
+class Supplier {
   final String id; // Added unique ID
   final String name;
   final String contactPerson; // Renamed from 'contact' for clarity
   final String phoneNumber; // Added phone number
   final String? email; // Added email (optional)
   final String address; // Added address
-  final List<String> invoiceIds; // List of IDs of related invoices
+  final String paymentTerms; // e.g., "Net 30", "Due on receipt"
+  final List<String> productIds; // List of IDs of products supplied (optional)
 
-  Customer({
+  Supplier({
     required this.id,
     required this.name,
     required this.contactPerson,
     required this.phoneNumber,
     this.email,
     required this.address,
-    required this.invoiceIds,
-    required String contact, // Initialize with empty list if creating new
+    required this.paymentTerms,
+    this.productIds = const [],
+    required String contact, // Initialize with empty list
   });
 
-  factory Customer.fromJson(Map<String, dynamic> json) {
-    return Customer(
+  factory Supplier.fromJson(Map<String, dynamic> json) {
+    return Supplier(
       id: json['id'],
       name: json['name'],
       contactPerson: json['contactPerson'],
       phoneNumber: json['phoneNumber'],
       email: json['email'],
       address: json['address'],
-      invoiceIds: List<String>.from(json['invoiceIds'] ?? []),
-      contact: '', // Handle potential null list
+      paymentTerms: json['paymentTerms'],
+      productIds: List<String>.from(json['productIds'] ?? []),
+      contact: '',
     );
   }
 
@@ -39,7 +42,8 @@ class Customer {
       'phoneNumber': phoneNumber,
       'email': email,
       'address': address,
-      'invoiceIds': invoiceIds,
+      'paymentTerms': paymentTerms,
+      'productIds': productIds,
     };
   }
 }
