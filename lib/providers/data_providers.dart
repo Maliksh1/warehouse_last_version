@@ -143,68 +143,7 @@ final List<Invoice> _mockInvoices = [
       totalAmount: 120.0),
 ];
 
-final List<Product> _mockProducts = [
-  Product(
-      // متوفر
-      id: uuid.v4(),
-      name: 'Laptop X1',
-      sku: 'LX-001',
-      supplierId: _mockSuppliers.isNotEmpty ? _mockSuppliers[0].id : 'sup1',
-      categoryId: _mockCategories.length > 3 ? _mockCategories[3].id : 'cat4',
-      purchasePrice: 800,
-      sellingPrice: 1200,
-      minStockLevel: 10),
-  Product(
-      // متوفر
-      id: uuid.v4(),
-      name: 'Office Chair',
-      sku: 'OC-002',
-      supplierId: _mockSuppliers.length > 1 ? _mockSuppliers[1].id : 'sup2',
-      categoryId: _mockCategories.length > 4 ? _mockCategories[4].id : 'cat5',
-      purchasePrice: 150,
-      sellingPrice: 250,
-      minStockLevel: 20),
-  Product(
-      // منخفض (بناءً على _initialMockStockItems)
-      id: uuid.v4(),
-      name: 'Product ABC',
-      sku: 'ABC-003',
-      supplierId: _mockSuppliers.isNotEmpty ? _mockSuppliers[0].id : 'sup1',
-      categoryId: _mockCategories.length > 3 ? _mockCategories[3].id : 'cat4',
-      purchasePrice: 10,
-      sellingPrice: 20,
-      minStockLevel: 10),
-  Product(
-      // متوفر
-      id: uuid.v4(),
-      name: 'Widget 4',
-      sku: 'W-004',
-      supplierId: _mockSuppliers.length > 2 ? _mockSuppliers[2].id : 'sup3',
-      categoryId: _mockCategories.length > 1 ? _mockCategories[1].id : 'cat2',
-      purchasePrice: 5,
-      sellingPrice: 15,
-      minStockLevel: 50),
-  Product(
-      // منخفض (بناءً على _initialMockStockItems)
-      id: uuid.v4(),
-      name: 'Thingamajig 5',
-      sku: 'T-005',
-      supplierId: _mockSuppliers.length > 1 ? _mockSuppliers[1].id : 'sup2',
-      categoryId: _mockCategories.length > 2 ? _mockCategories[2].id : 'cat3',
-      purchasePrice: 25,
-      sellingPrice: 40,
-      minStockLevel: 10),
-  Product(
-      // نافد (بناءً على _initialMockStockItems)
-      id: uuid.v4(),
-      name: 'Another Item',
-      sku: 'AI-006',
-      supplierId: _mockSuppliers.length > 2 ? _mockSuppliers[2].id : 'sup3',
-      categoryId: _mockCategories.length > 1 ? _mockCategories[1].id : 'cat2',
-      purchasePrice: 50,
-      sellingPrice: 80,
-      minStockLevel: 5),
-];
+final List<Product> _mockProducts = [];
 
 final List<Specialization> _mockSpecializations = [
   Specialization(id: uuid.v4(), name: "إدارة المستودع", title: "مدير مستودع"),
@@ -686,17 +625,6 @@ final categoriesInWarehouseProvider =
 
       final Set<String> productIdsInWarehouse =
           stockItems.map((item) => item.productId).toSet();
-
-      final Set<String> categoryIdsInWarehouse = allProducts
-          .where((product) => productIdsInWarehouse.contains(product.id))
-          .map((product) => product.categoryId)
-          .toSet();
-
-      final List<Category> categoriesInWarehouse = allCategories
-          .where((category) => categoryIdsInWarehouse.contains(category.id))
-          .toList();
-
-      return AsyncValue.data(categoriesInWarehouse);
     } catch (e, s) {
       // Catch any processing errors
       return AsyncValue.error(e, s);
@@ -753,54 +681,7 @@ final stockItemByIdProvider =
   );
 });
 
-final lowStockCountProvider = Provider<AsyncValue<int>>((ref) {
-  final stockItemsAsyncValue = ref.watch(stockItemsProvider);
-  final productsAsyncValue = ref.watch(productsListProvider);
-
-  // 1. Check for loading state
-  if (stockItemsAsyncValue.isLoading || productsAsyncValue.isLoading) {
-    return const AsyncValue.loading();
-  }
-
-  // 2. Check for error states
-  Object? error;
-  StackTrace? stackTrace;
-  if (stockItemsAsyncValue.hasError) {
-    error = stockItemsAsyncValue.error;
-    stackTrace = stockItemsAsyncValue.stackTrace;
-  } else if (productsAsyncValue.hasError) {
-    error = productsAsyncValue.error;
-    stackTrace = productsAsyncValue.stackTrace;
-  }
-
-  if (error != null) {
-    return AsyncValue.error(error, stackTrace!);
-  }
-
-  // 3. If all have data
-  if (stockItemsAsyncValue.hasValue && productsAsyncValue.hasValue) {
-    try {
-      final List<StockItem> allStockItems = stockItemsAsyncValue.value!;
-      final List<Product> allProducts = productsAsyncValue.value!;
-
-      int lowStockCount = 0;
-      for (var product in allProducts) {
-        final totalQuantity = allStockItems
-            .where((item) => item.productId == product.id)
-            .fold(0, (sum, item) => sum + item.quantity);
-
-        if (totalQuantity > 0 && totalQuantity <= product.minStockLevel) {
-          lowStockCount++;
-        }
-      }
-      return AsyncValue.data(lowStockCount);
-    } catch (e, s) {
-      return AsyncValue.error(e, s);
-    }
-  }
-  // Fallback
-  return const AsyncValue.loading();
-});
+// Fallback
 
 final overdueTasksCountProvider = Provider<AsyncValue<int>>((ref) {
   final tasksAsyncValue = ref.watch(transportTasksProvider);

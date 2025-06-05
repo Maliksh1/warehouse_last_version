@@ -1,45 +1,37 @@
-// lib/models/product.dart
 class Product {
-  final String id; // Unique ID
+  final String id;
   final String name;
-  final String sku; // Stock Keeping Unit
-  final String? description; // Optional description
-  final String categoryId; // Link to Category ID
-  final String supplierId; // Link to Supplier ID
-  // REMOVED: int currentStock; // Total stock will be calculated by summing StockItems for this product across warehouses
-  final double purchasePrice; // Purchase price
-  final double sellingPrice; // Selling price
-  final String? imageUrl; // Optional image URL
-  final int
-      minStockLevel; // Minimum stock level for alerts (this is a rule for the product type, not tied to a location)
+  final String? description;
+  final String importCycle;
+  final int quantity;
+  final String typeId;
+  final String unit;
+  final double actualPiecePrice;
+  final String supplierId;
 
   Product({
     required this.id,
     required this.name,
-    required this.sku,
     this.description,
-    required this.categoryId,
+    required this.importCycle,
+    required this.quantity,
+    required this.typeId,
+    required this.unit,
+    required this.actualPiecePrice,
     required this.supplierId,
-    // currentStock is removed
-    required this.purchasePrice,
-    required this.sellingPrice,
-    this.imageUrl,
-    this.minStockLevel = 10,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
       id: json['id'],
       name: json['name'],
-      sku: json['sku'],
       description: json['description'],
-      categoryId: json['categoryId'],
+      importCycle: json['importCycle'],
+      quantity: json['quantity'],
+      typeId: json['typeId'],
+      unit: json['unit'],
+      actualPiecePrice: (json['actualPiecePrice'] ?? 0).toDouble(),
       supplierId: json['supplierId'],
-      // currentStock is not parsed here
-      purchasePrice: json['purchasePrice'].toDouble(),
-      sellingPrice: json['sellingPrice'].toDouble(),
-      imageUrl: json['imageUrl'],
-      minStockLevel: json['minStockLevel'] ?? 10,
     );
   }
 
@@ -47,17 +39,13 @@ class Product {
     return {
       'id': id,
       'name': name,
-      'sku': sku,
       'description': description,
-      'categoryId': categoryId,
+      'importCycle': importCycle,
+      'quantity': quantity,
+      'typeId': typeId,
+      'unit': unit,
+      'actualPiecePrice': actualPiecePrice,
       'supplierId': supplierId,
-      // currentStock is not included here
-      'purchasePrice': purchasePrice,
-      'sellingPrice': sellingPrice,
-      'imageUrl': imageUrl,
-      'minStockLevel': minStockLevel,
     };
   }
-
-  // REMOVED: bool get isLowStock => currentStock <= minStockLevel; // This check now needs total stock data
 }

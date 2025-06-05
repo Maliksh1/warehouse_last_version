@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // Added Riverpod
 import 'package:warehouse/providers/locale_provider.dart';
 import 'package:warehouse/widgets/Dialogs/ShowAddProdustWithWarehouseDialog.dart';
+import 'package:warehouse/widgets/Dialogs/show_add_general_product_dialog.dart';
 import 'package:warehouse/widgets/dialogs/add_product_to_warehouse_dialog.dart';
 // Import the widgets used for the dashboard overview
 import '../widgets/kpi_card.dart';
@@ -85,7 +86,7 @@ class DashboardHome extends ConsumerWidget {
                 icon: Icons.add_box,
                 onPressed: () {
                   // افتح شاشة اضافة منتج
-                  showAddProductWithWarehouseDialog(context, ref);
+                  showAddGeneralProductDialog(context, ref);
                 },
               ),
               QuickActionButton(

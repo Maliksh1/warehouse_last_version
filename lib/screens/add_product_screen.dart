@@ -58,14 +58,13 @@ class AddProductScreen extends ConsumerWidget {
                     final product = Product(
                       id: DateTime.now().millisecondsSinceEpoch.toString(),
                       name: nameController.text,
-                      sku: skuController.text,
                       description: descController.text,
-                      categoryId: 'default',
                       supplierId: 'default',
-                      purchasePrice: double.tryParse(priceController.text) ?? 0,
-                      sellingPrice:
-                          double.tryParse(sellPriceController.text) ?? 0,
-                      minStockLevel: 10,
+                      importCycle: '',
+                      quantity: 40,
+                      typeId: '',
+                      unit: '',
+                      actualPiecePrice: 20,
                     );
                     ref.read(productProvider.notifier).add(product);
 

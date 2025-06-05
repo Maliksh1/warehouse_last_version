@@ -9,7 +9,7 @@ import 'providers/navigation_provider.dart';
 
 import 'screens/app_container.dart';
 import 'screens/add_product_screen.dart';
-import 'screens/product_details_screen.dart'; // تأكد أنك أنشأت هذه الشاشة!
+import 'screens/product_details_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

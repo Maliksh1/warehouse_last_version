@@ -91,16 +91,12 @@ void showAddProductWithWarehouseDialog(BuildContext context, WidgetRef ref) {
               final newProduct = Product(
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
                 name: nameController.text,
-                sku:
-                    '${selectedWarehouse.value}-${skuController.text}', // رابط مع المستودع
-                categoryId: categoryIdController.text,
-                supplierId: supplierIdController.text,
-                purchasePrice:
-                    double.tryParse(purchasePriceController.text) ?? 0.0,
-                sellingPrice:
-                    double.tryParse(sellingPriceController.text) ?? 0.0,
-                imageUrl: null,
-                minStockLevel: 5,
+                importCycle: '',
+                quantity: 20,
+                typeId: '',
+                unit: '',
+                actualPiecePrice: 40,
+                supplierId: '',
               );
 
               ref.read(productProvider.notifier).add(newProduct);

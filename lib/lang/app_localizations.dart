@@ -98,6 +98,18 @@ class AppLocalizations {
       "select_warehouse": "Select Warehouse",
       "choose_warehouse": "Choose a warehouse",
 
+      "description": "Description",
+      "import_cycle": "Import Cycle",
+
+      "type_id": "Type ID",
+      "unit": "Unit",
+      "actual_piece_price": "Piece Price",
+      "save": "Save",
+
+      "required_field": "This field is required",
+      "invalid_number": "Please enter a valid number",
+      "product_added_successfully": "Product added successfully"
+
       // Added
     },
     'ar': {
@@ -190,6 +202,16 @@ class AppLocalizations {
       "used": "المستخدم",
       "no_data_available": "لا توجد بيانات متاحة.",
       "resolve": "حل المشكلة",
+
+      "description": "الوصف",
+      "import_cycle": "دورة الاستيراد",
+
+      "type_id": "نوع المنتج",
+      "unit": "الوحدة",
+      "actual_piece_price": "سعر القطعة",
+
+      "required_field": "هذا الحقل مطلوب",
+      "invalid_number": "يرجى إدخال رقم صحيح",
     }
   };
 

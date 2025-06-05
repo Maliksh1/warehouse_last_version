@@ -37,8 +37,21 @@ class WarehousesScreen extends ConsumerWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) =>
-                              WarehouseDetailsScreen(warehouseId: w.id),
+                          builder: (_) => WarehouseDetailScreen(
+                            warehouseId: w.id,
+                            warehouse: Warehouse(
+                                id: "",
+                                name: "name",
+                                address: "address",
+                                capacityUnit: "400",
+                                location: "location",
+                                used: 20,
+                                manager: "manager",
+                                productIds: "productIds",
+                                usedCapacity: 40,
+                                capacity: 50,
+                                occupied: 10),
+                          ),
                         ),
                       );
                     },
