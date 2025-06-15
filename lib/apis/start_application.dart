@@ -24,20 +24,26 @@ class StartApplication {
           '${StartApplicationData.start_time!.hour.toString().padLeft(2, '0')}:${StartApplicationData.start_time!.minute.toString().padLeft(2, '0')}',
       'work_hours': StartApplicationData.work_hours,
     };
-    var response = await post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(requestData),
-    );
-    if (response.statusCode == 201) {
-      var data = jsonDecode(response.body);
-      await _saveValue(key: 'token', value: data['token']);
-      print('start application done successfully \n body=${response.body}');
-      return response;
-    } else {
-      print(
-        'start application failed \n statusCode=${response.statusCode} \n body=${response.body}',
+    dynamic response;
+    try {
+      response = await post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestData),
       );
+      if (response.statusCode == 201) {
+        var data = jsonDecode(response.body);
+        await _saveValue(key: 'token', value: data['token']);
+        print('start application done successfully \n body=${response.body}');
+        return response;
+      } else {
+        print(
+          'start application failed \n statusCode=${response.statusCode} \n body=${response.body}',
+        );
+        return response;
+      }
+    } catch (e) {
+      print('e=$e');
       return response;
     }
   }
