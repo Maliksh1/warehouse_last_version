@@ -1,14 +1,13 @@
 import 'imported_product.dart';
 
-/// يمثل قسماً داخل مستودع يدعم نوعاً معيناً من المنتجات
 class WarehouseSection {
   final String id;
-  final String warehouseId;
+  final String warehouseId;         // from existable_id
   final String name;
-  final String supportedTypeId; // ← هذا هو الحقل الأساسي لمقارنة توافق المنتج
-  final double capacity;
-  final String capacityUnit;
-  final double occupied;
+  final String supportedTypeId;     // نربطه بـ product_id (المنتج المختص به القسم)
+  final double capacity;            // نحسبها من max_storage_media_area أو من (floors*classes*positions)
+  final String capacityUnit;        // وحدة عرض للسعة - اخترنا "موقع" (positions)
+  final double occupied;            // capacity - avilable_storage_media_area (أو actual_load_product)
   final List<ImportedProduct> products;
 
   WarehouseSection({
@@ -23,29 +22,45 @@ class WarehouseSection {
   });
 
   factory WarehouseSection.fromJson(Map<String, dynamic> json) {
+    num? n(dynamic v) => (v is num) ? v : num.tryParse('$v');
+
+    final double floors   = (n(json['num_floors']) ?? 0).toDouble();
+    final double classes  = (n(json['num_classes']) ?? 0).toDouble();
+    final double posOnCls = (n(json['num_positions_on_class']) ?? 0).toDouble();
+
+    // السعة القصوى بحسب الرد (إن وُجدت) وإلا نشتقها من (floors*classes*positions)
+    final double maxArea = (n(json['max_storage_media_area'])?.toDouble())
+        ?? (floors * classes * posOnCls);
+
+    final double? availableArea =
+        n(json['avilable_storage_media_area'])?.toDouble();
+
+    // الإشغال: الفرق بين القصوى والمتاحة، أو استخدم actual_load_product كبديل
+    final double occupiedCalc = (availableArea != null)
+        ? (maxArea - availableArea)
+        : (n(json['actual_load_product'])?.toDouble() ?? 0);
+
     return WarehouseSection(
-      id: json['id'],
-      warehouseId: json['warehouseId'],
-      name: json['name'],
-      supportedTypeId: json['supportedTypeId'], // تم التعديل هنا
-      capacity: (json['capacity'] ?? 0).toDouble(),
-      capacityUnit: json['capacityUnit'],
-      occupied: (json['occupied'] ?? 0).toDouble(),
-      products: (json['products'] as List? ?? [])
-          .map((e) => ImportedProduct.fromJson(e))
-          .toList(),
+      id: '${json['id']}',
+      warehouseId: '${json['existable_id']}',
+      name: json['name']?.toString() ?? '',
+      supportedTypeId: '${json['product_id']}',              // ربطناه بالمنتج
+      capacity: maxArea,
+      capacityUnit: 'موقع',                                  // تسمية ودّية للعرض
+      occupied: occupiedCalc.clamp(0, maxArea),
+      products: const [],                                     // لا يوجد products في الرد
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'warehouseId': warehouseId,
+      'existable_id': warehouseId,
       'name': name,
-      'supportedTypeId': supportedTypeId,
-      'capacity': capacity,
-      'capacityUnit': capacityUnit,
-      'occupied': occupied,
+      'product_id': supportedTypeId,
+      'max_storage_media_area': capacity,
+      'avilable_storage_media_area': (capacity - occupied),
+      'capacity_unit': capacityUnit,
       'products': products.map((p) => p.toJson()).toList(),
     };
   }

@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:warehouse/widgets/Dialogs/show_add_general_product_dialog.dart';
 
 import 'lang/app_localizations.dart';
 import 'providers/locale_provider.dart';
+// إذا لا تستخدم navigation_provider هنا يمكنك حذف الاستيراد
 import 'providers/navigation_provider.dart';
 
 import 'screens/app_container.dart';
-import 'screens/add_product_screen.dart';
+
 import 'screens/product_details_screen.dart';
+import 'screens/splash_screen.dart'; // <-- أضف هذا
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,7 +39,7 @@ class MyApp extends ConsumerWidget {
     final currentLocale = ref.watch(localeProvider);
 
     return MaterialApp(
-      title: AppLocalizations(currentLocale).get('app_title'),
+      title: AppLocalizations.of(context)?.get('app_title') ?? 'Warehouse',
       locale: currentLocale,
       supportedLocales: const [
         Locale('en'),
@@ -58,7 +61,7 @@ class MyApp extends ConsumerWidget {
           titleTextStyle: TextStyle(
               color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        cardTheme: CardTheme(
+        cardTheme: const CardTheme(
           elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -81,7 +84,7 @@ class MyApp extends ConsumerWidget {
           onSecondary: Colors.white,
           surface: Colors.white,
           onSurface: Colors.black87,
-          background: Colors.grey[100]!,
+          background: Colors.white,
           onBackground: Colors.black87,
           error: Colors.red,
           onError: Colors.white,
@@ -89,15 +92,15 @@ class MyApp extends ConsumerWidget {
         ),
       ),
 
-      // ✅ App Container as Home
-      home: AppContainer(),
+      // ✅ ابدأ بـ SplashScreen
+      home: const SplashScreen(),
 
       // ✅ Routes with arguments
       onGenerateRoute: (settings) {
         if (settings.name == '/add-product') {
-          final warehouseId = settings.arguments as String;
+  
           return MaterialPageRoute(
-            builder: (_) => AddProductScreen(warehouseId: warehouseId),
+            builder: (context) => _AddProductDialogWrapper(),
           );
         }
 
@@ -110,6 +113,23 @@ class MyApp extends ConsumerWidget {
 
         return null;
       },
+    );
+  }
+}
+
+class _AddProductDialogWrapper extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Show the dialog when this widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showAddGeneralProductDialog(context, ref);
+    });
+    
+    // Return a simple container as the widget
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 }

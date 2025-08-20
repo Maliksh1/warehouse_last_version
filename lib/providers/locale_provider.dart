@@ -2,42 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Define a StateNotifier to manage the Locale state
+/// يدير حالة اللغة ويحفظها في SharedPreferences
 class LocaleNotifier extends StateNotifier<Locale> {
   final SharedPreferences prefs;
 
-  // Initial locale is passed during creation
+  /// مرّر اللغة الابتدائية و SharedPreferences من main.dart عبر override
   LocaleNotifier(Locale initialLocale, this.prefs) : super(initialLocale);
 
-  // Method to toggle language between 'ar' and 'en'
+  /// تبديل سريع بين العربية/الإنجليزية
   Future<void> toggleLocale() async {
-    final newLanguageCode = state.languageCode == 'ar' ? 'en' : 'ar';
-    final newLocale = Locale(newLanguageCode);
-    state = newLocale; // Update the state
-    await prefs.setString('language_code', newLanguageCode); // Save preference
+    final newCode = state.languageCode == 'ar' ? 'en' : 'ar';
+    await setLocale(newCode);
   }
 
-  // Optional: Method to set a specific locale
+  /// تعيين لغة محددة ('ar' أو 'en')
   Future<void> setLocale(String languageCode) async {
-    final newLocale = Locale(languageCode);
-    if (['en', 'ar'].contains(languageCode)) {
-      state = newLocale;
-      await prefs.setString('language_code', languageCode);
-    } else {
-      print("Unsupported language code: $languageCode");
+    if (!['ar', 'en'].contains(languageCode)) {
+      // لغة غير مدعومة حاليًا — تجاهل بهدوء
+      return;
     }
+    final newLocale = Locale(languageCode);
+    state = newLocale;
+    await prefs.setString('language_code', languageCode);
   }
+
+  /// غلاف مريح ليستقبل Locale مباشرة (متوافق مع LanguageSwitcher لديك)
+  Future<void> changeLocale(Locale locale) => setLocale(locale.languageCode);
 }
 
-// Define the StateNotifierProvider for the LocaleNotifier
+/// مزوّد الحالة للّغة — سيتم override له في main.dart
 final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
   throw UnimplementedError('localeProvider must be overridden in main.dart');
 });
 
-// --- Provider to track the currently selected page/section ---
-// This provider controls which widget is displayed in the main content area.
-// Indices 0-12 (or more) correspond to the main section screens.
-// Negative indices can be used for special views like creation forms or detail screens.
-// E.g., -1 could mean "Show Create Transport Task form".
-final selectedPageIndexProvider =
-    StateProvider<int>((ref) => 0); // Start with index 0 (Dashboard Overview)
+/// (اختياري) مزوّد صفحة/قسم مختار — تركته هنا كما ظهر في كودك السابق
+final selectedPageIndexProvider = StateProvider<int>((ref) => 0);

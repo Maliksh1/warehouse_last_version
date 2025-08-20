@@ -1,48 +1,46 @@
+// lib/services/product_api.dart
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:warehouse/models/product.dart';
+import 'package:warehouse/models/supported_product_request.dart';
 
 class ProductApi {
-  static const String baseUrl = 'https://api.example.com/products';
+  static const String _baseUrl = 'http://127.0.0.1:8000/api';
 
-  static Future<List<Product>> fetchAllProducts() async {
-    final response = await http.get(Uri.parse(baseUrl));
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as List;
-      return data.map((json) => Product.fromJson(json)).toList();
-    } else {
-      throw Exception('فشل في تحميل المنتجات');
+  static Future<bool> supportNewProduct(SupportedProductRequest req) async {
+    // قراءة التوكن بنفس نمط مشروعك
+    const storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+
+    // تجهيز الحمولة
+    final payload = Map<String, dynamic>.from(req.toJson());
+
+    // في حال كان الباك يتوقع 'type_id' بدل 'typeId'
+    if (!payload.containsKey('type_id') && payload.containsKey('typeId')) {
+      final raw = payload['typeId'];
+      final asInt = int.tryParse(raw?.toString() ?? '');
+      payload['type_id'] = asInt ?? raw;
+      // payload.remove('typeId'); // فعّل هذا السطر إذا كان السيرفر يرفض وجود الحقلين معاً
     }
-  }
 
-  static Future<void> createProduct(Product product) async {
-    final response = await http.post(
-      Uri.parse(baseUrl),
-      body: jsonEncode(product.toJson()),
-      headers: {'Content-Type': 'application/json'},
+    final uri = Uri.parse('$_baseUrl/support_new_product');
+    final res = await http.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
     );
-    if (response.statusCode != 201) {
-      throw Exception('فشل في إضافة المنتج');
-    }
-  }
 
-  static Future<void> updateProduct(Product product) async {
-    final url = '$baseUrl/${product.id}';
-    final response = await http.put(
-      Uri.parse(url),
-      body: jsonEncode(product.toJson()),
-      headers: {'Content-Type': 'application/json'},
-    );
-    if (response.statusCode != 200) {
-      throw Exception('فشل في تحديث المنتج');
-    }
-  }
+    debugPrint('support_new_product -> ${res.statusCode}');
+    debugPrint('support_new_product body -> ${res.body}');
 
-  static Future<void> deleteProduct(String id) async {
-    final url = '$baseUrl/$id';
-    final response = await http.delete(Uri.parse(url));
-    if (response.statusCode != 200) {
-      throw Exception('فشل في حذف المنتج');
-    }
+    // اعتبر النجاح 200/201/202 (حسب نمط بقية الـ APIs عندك)
+    return res.statusCode == 200 ||
+        res.statusCode == 201 ||
+        res.statusCode == 202;
   }
 }

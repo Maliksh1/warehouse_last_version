@@ -220,41 +220,35 @@ final List<Vehicle> _mockVehicles = [
 
 final List<Warehouse> _initialMockWarehouses = [
   Warehouse(
-      id: uuid.v4(), // w1
-      name: "المستودع الرئيسي",
-      address: 'عنوان المستودع الرئيسي',
-      capacity: 1000,
-      capacityUnit: 'm³', // تغيير إلى m³ ليتوافق مع وحدة سعة النموذج
-      occupied: 650,
-      productIds: null,
-      location: '',
-      used: 1,
-      manager: '',
-      usedCapacity: null),
+    id: uuid.v4(), // w1
+    name: "المستودع الرئيسي",
+    address: 'عنوان المستودع الرئيسي',
+    capacity: 1000,
+    capacityUnit: 'm³', // تغيير إلى m³ ليتوافق مع وحدة سعة النموذج
+    occupied: 650,
+    productIds: null,
+    location: '', manager: '',
+  ),
   Warehouse(
-      id: uuid.v4(), // w2
-      name: "مستودع الجنوب",
-      address: 'عنوان مستودع الجنوب',
-      capacity: 500,
-      capacityUnit: 'm³',
-      occupied: 400,
-      productIds: null,
-      location: '',
-      used: 1,
-      manager: '',
-      usedCapacity: null),
+    id: uuid.v4(), // w2
+    name: "مستودع الجنوب",
+    address: 'عنوان مستودع الجنوب',
+    capacity: 500,
+    capacityUnit: 'm³',
+    occupied: 400,
+    productIds: null,
+    location: '', manager: '',
+  ),
   Warehouse(
-      id: uuid.v4(), // w3
-      name: "مستودع الشمال",
-      address: 'عنوان مستودع الشمال',
-      capacity: 750,
-      capacityUnit: 'm³',
-      occupied: 700,
-      productIds: null,
-      location: '',
-      used: 1,
-      manager: '',
-      usedCapacity: null),
+    id: uuid.v4(), // w3
+    name: "مستودع الشمال",
+    address: 'عنوان مستودع الشمال',
+    capacity: 750,
+    capacityUnit: 'm³',
+    occupied: 700,
+    productIds: null,
+    location: '', manager: '', 
+  ),
 ];
 
 final List<TransportTask> _initialMockTransportTasks = [
@@ -730,8 +724,7 @@ final warehouseOccupancyProvider =
     if (warehouses.isEmpty) return occupancyData;
 
     for (var w in warehouses) {
-      occupancyData
-          .add(WarehouseOccupancyData(w.name, (w.usageRate * 100).round()));
+      occupancyData.add(WarehouseOccupancyData(w.name));
     }
     return occupancyData;
   });
@@ -739,7 +732,6 @@ final warehouseOccupancyProvider =
 
 class WarehouseOccupancyData {
   final String name;
-  final int percentage;
 
-  WarehouseOccupancyData(this.name, this.percentage);
+  WarehouseOccupancyData(this.name);
 }

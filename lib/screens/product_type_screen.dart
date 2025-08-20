@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/providers/navigation_provider.dart';
 import 'package:warehouse/providers/product_types_provider.dart';
+import 'package:warehouse/providers/api_service_provider.dart';
 import 'package:warehouse/warehouse_updates/updated_api_service.dart';
 import 'package:warehouse/widgets/sidebar_menu.dart';
-
-final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
-});
 
 class ProductTypesScreen extends ConsumerStatefulWidget {
   const ProductTypesScreen({super.key});
@@ -20,11 +17,9 @@ class _ProductTypesScreenState extends ConsumerState<ProductTypesScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
     // تحديث البيانات تلقائيًا عند كل دخول للشاشة
     Future.microtask(() {
-      ref.refresh(
-          productTypesProvider); // يعيد تحميل البيانات ولا حاجة لاستخدام القيمة
+      ref.refresh(productTypesProvider);
     });
   }
 
@@ -55,21 +50,23 @@ class _ProductTypesScreenState extends ConsumerState<ProductTypesScreen> {
         data: (types) => ListView.builder(
           itemCount: types.length,
           itemBuilder: (_, index) {
-            final type = types[index];
+            final type = types[index] as Map<String, dynamic>;
+            final int id = (type['id'] as num).toInt();
+            final String name = (type['name'] ?? '').toString();
+
             return ListTile(
-              title: Text(type['name']),
+              title: Text(name),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () => _showEditDialog(
-                        context, type['id'], type['name'], ref, apiService),
+                    onPressed: () =>
+                        _showEditDialog(context, id, name, ref, apiService),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () =>
-                        _deleteType(context, type['id'], ref, apiService),
+                    onPressed: () => _deleteType(context, id, ref, apiService),
                   ),
                 ],
               ),
@@ -104,11 +101,13 @@ class _ProductTypesScreenState extends ConsumerState<ProductTypesScreen> {
               if (name.isEmpty) return;
 
               try {
-                final response = await apiService.addProductType(name);
+                // ✅ تمرير الوسيط الثاني كما يتطلب create_new_specification
+                final response = await apiService.addProductType(name, 'type');
                 Navigator.pop(context);
                 ref.refresh(productTypesProvider);
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(response['msg'] ?? 'تمت الإضافة بنجاح'),
+                  content:
+                      Text(response['msg']?.toString() ?? 'تمت الإضافة بنجاح'),
                   backgroundColor: Colors.green,
                 ));
               } catch (e) {

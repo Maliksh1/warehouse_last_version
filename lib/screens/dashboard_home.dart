@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // Added Riverpod
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/providers/locale_provider.dart';
-import 'package:warehouse/widgets/Dialogs/ShowAddProdustWithWarehouseDialog.dart';
+
+import 'package:warehouse/widgets/Dialogs/ShowAddProductWithWarehouseDialog.dart';
+import 'package:warehouse/widgets/Dialogs/_showAddSpecializationDialog.dart';
 import 'package:warehouse/widgets/Dialogs/show_add_general_product_dialog.dart';
-import 'package:warehouse/widgets/dialogs/add_product_to_warehouse_dialog.dart';
-// Import the widgets used for the dashboard overview
+import 'package:warehouse/widgets/Dialogs/add_product_to_warehouse_dialog.dart';
+
+// ✅ استيراد الديالوجات الجديدة (عدّل المسار إذا لزم)
+import 'package:warehouse/widgets/Dialogs/add_product_type_dialog.dart';
+
 import '../widgets/kpi_card.dart';
 import '../widgets/quick_action_button.dart';
 import '../lang/app_localizations.dart';
@@ -14,18 +19,17 @@ class DashboardHome extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    var t = AppLocalizations.of(context)!;
+    final t = AppLocalizations.of(context)!;
 
-    // Access the selected page index notifier to change the state
+    // لو كنت تستخدمه للتنقل الداخلي
     final selectedPageIndexNotifier =
         ref.read(selectedPageIndexProvider.notifier);
 
-    // TODO: Fetch actual KPI data using ref.watch from relevant providers
-    // For now, using hardcoded values as placeholders
-    final kpiInventoryValue = "105";
-    final kpiTasksValue = "7";
-    final kpiVehiclesValue = "12";
-    final kpiInvoicesValue = "3";
+    // TODO: اربط هذه القيم بـ Providers لاحقًا
+    const kpiInventoryValue = "105";
+    const kpiTasksValue = "7";
+    const kpiVehiclesValue = "12";
+    const kpiInvoicesValue = "3";
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -35,6 +39,8 @@ class DashboardHome extends ConsumerWidget {
           Text(t.get('dashboard'),
               style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 16),
+
+          // KPIs
           Wrap(
             spacing: 16,
             runSpacing: 16,
@@ -64,28 +70,61 @@ class DashboardHome extends ConsumerWidget {
 
           const SizedBox(height: 24),
 
+          // Quick actions
           Text(t.get('quick_actions_title'),
               style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
+
           Wrap(
             spacing: 16,
             runSpacing: 16,
             children: [
-              // QuickActionButton(
-              //   label: t.get('new_task'),
-              //   icon: Icons.assignment_add,
-              //   onPressed: () {
-              //     // --- Action for "New Task" ---
-              //     // Change the selected page index to -1 to show the Create Task screen
-              //     selectedPageIndexNotifier.state = -1;
-              //     print("Navigate to Create New Task Screen (index -1)");
-              //   },
-              // ),
+              // ✅ الزر الجديد: إضافة نوع
+              QuickActionButton(
+                label: t.get('add_new_type') /* أضف مفتاحاً في اللغات إن أردت */
+                    ??
+                    'Add New Type',
+                icon: Icons.category_outlined,
+                onPressed: () {
+                  try {
+                    showAddProductTypeDialog(context, ref);
+                  } catch (e) {
+                    debugPrint('Add New Type dialog error: $e');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('تعذّر فتح نافذة إضافة النوع: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+              ),
+
+              // ✅ الزر الجديد: إضافة اختصاص
+              QuickActionButton(
+                label:
+                    t.get('add_new_specialization') ?? 'Add New Specialization',
+                icon: Icons.badge_outlined,
+                onPressed: () {
+                  try {
+                    showAddSpecializationDialog(context, ref);
+                  } catch (e) {
+                    debugPrint('Add Specialization dialog error: $e');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('تعذّر فتح نافذة إضافة الاختصاص: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+              ),
+
+              // أزرارك السابقة
               QuickActionButton(
                 label: t.get('new_product'),
                 icon: Icons.add_box,
                 onPressed: () {
-                  // افتح شاشة اضافة منتج
                   showAddGeneralProductDialog(context, ref);
                 },
               ),
@@ -93,8 +132,7 @@ class DashboardHome extends ConsumerWidget {
                 label: t.get('new_invoice'),
                 icon: Icons.receipt_long,
                 onPressed: () {
-                  // TODO: Navigate to Create New Invoice (maybe use another special index like -3, or a dialog)
-                  print("New Invoice Button Pressed");
+                  debugPrint('New Invoice Button Pressed');
                 },
               ),
             ],
@@ -141,9 +179,7 @@ class DashboardHome extends ConsumerWidget {
 
           const SizedBox(height: 24),
           Text("Urgent Actions (Placeholder)",
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall), // TODO: Localize title
+              style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
           Card(
             elevation: 2,
@@ -153,7 +189,7 @@ class DashboardHome extends ConsumerWidget {
               height: 150,
               child: Center(child: Text("Urgent Action List Placeholder")),
             ),
-          )
+          ),
         ],
       ),
     );

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/lang/app_localizations.dart';
 import 'package:warehouse/providers/locale_provider.dart';
-import 'package:warehouse/providers/navigation_provider.dart'; // إضافة استيراد navigation_provider
+import 'package:warehouse/providers/navigation_provider.dart';
+import 'package:warehouse/services/auth_service.dart';
+import 'package:warehouse/screens/login_screen.dart';
 
 // This widget is the static sidebar content
 class SidebarMenu extends ConsumerWidget {
@@ -60,59 +62,27 @@ class SidebarMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context)!;
 
-    // List of menu items with their index and localization key
     // Indices MUST match the order of widgets in _mainSectionContent list in AppContainer
     final List<Map<String, dynamic>> menuItems = [
+      {'icon': Icons.dashboard, 'title_key': 'dashboard', 'index': 0},
+      {'icon': Icons.warehouse, 'title_key': 'warehouses', 'index': 1},
+      {'icon': Icons.inventory, 'title_key': 'products', 'index': 2},
+      {'icon': Icons.people, 'title_key': 'employees', 'index': 3},
+      {'icon': Icons.map, 'title_key': 'distribution_centers', 'index': 4},
+      {'icon': Icons.person, 'title_key': 'customers', 'index': 5},
       {
-        'icon': Icons.dashboard,
-        'title_key': 'dashboard',
-        'index': 0
-      }, // Dashboard Overview
-      {
-        'icon': Icons.warehouse,
-        'title_key': 'warehouses',
-        'index': 1
-      }, // Warehouses
-      {
-        'icon': Icons.inventory,
-        'title_key': 'products',
-        'index': 2
-      }, // Products
-      {'icon': Icons.people, 'title_key': 'employees', 'index': 3}, // Employees
-      {
-        'icon': Icons.map,
-        'title_key': 'distribution_centers',
-        'index': 4
-      }, // Distribution Centers
-      {'icon': Icons.person, 'title_key': 'customers', 'index': 5}, // Customers
-      {
-        'icon': Icons.local_shipping,
-        'title_key': 'vehicles',
+        'icon': Icons.category_outlined,
+        'title_key': 'product_types',
         'index': 6
-      }, // Vehicles
-      {
-        'icon': Icons.receipt_long,
-        'title_key': 'invoices',
-        'index': 7
-      }, // Invoices
-      {'icon': Icons.store, 'title_key': 'suppliers', 'index': 8}, // Suppliers
-      {
-        'icon': Icons.category,
-        'title_key': 'categories',
-        'index': 9
-      }, // Categories
-      {
-        'icon': Icons.star,
-        'title_key': 'specializations',
-        'index': 10
-      }, // Specializations
-      {
-        'icon': Icons.alt_route,
-        'title_key': 'transport_tasks',
-        'index': 11
-      }, // Transport Tasks
-      {'icon': Icons.garage, 'title_key': 'garage', 'index': 12}, // Garage
-      // TODO: Add Settings menu item if needed (assign index 13 or next available)
+      },
+      {'icon': Icons.receipt_long, 'title_key': 'invoices', 'index': 7},
+      {'icon': Icons.store, 'title_key': 'suppliers', 'index': 8},
+      {'icon': Icons.category, 'title_key': 'categories', 'index': 9},
+      {'icon': Icons.star, 'title_key': 'specializations', 'index': 10},
+      {'icon': Icons.alt_route, 'title_key': 'transport_tasks', 'index': 11},
+      {'icon': Icons.garage, 'title_key': 'garage', 'index': 12},
+
+      // ✅ شاشة "أنواع المنتجات" الجديدة — خصصنا لها الفهرس 13
     ];
 
     return Container(
@@ -153,15 +123,21 @@ class SidebarMenu extends ConsumerWidget {
             ),
           ),
           const Divider(),
+          // ✅ Logout مفعل
           ListTile(
             leading: Icon(Icons.logout,
                 color:
                     Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
-            title: Text('Logout',
-                style:
-                    Theme.of(context).textTheme.bodyMedium), // TODO: Localize
-            onTap: () {
-              // TODO: Implement Logout logic
+            title:
+                Text('Logout', style: Theme.of(context).textTheme.bodyMedium),
+            onTap: () async {
+              // تنفيذ تسجيل الخروج
+              await ref.read(authServiceProvider).logout();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
             },
           )
         ],

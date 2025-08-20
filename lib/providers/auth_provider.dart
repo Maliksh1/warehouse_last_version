@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/services/auth_service.dart';
-import 'package:warehouse/core/exceptions.dart';
 
 final authProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {

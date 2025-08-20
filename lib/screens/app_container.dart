@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/models/warehouse.dart';
+import 'package:warehouse/screens/product_type_screen.dart';
 import 'package:warehouse/widgets/sidebar_menu.dart';
 import 'package:warehouse/providers/locale_provider.dart';
 import 'package:warehouse/providers/navigation_provider.dart'; // Import NEW navigation provider
@@ -43,7 +44,7 @@ class AppContainer extends ConsumerWidget {
     EmployeesScreen(), // 3
     DistributionCentersScreen(), // 4
     CustomersScreen(), // 5
-    VehiclesScreen(), // 6
+    ProductTypesScreen(), // 6
     InvoicesScreen(), // 7
     SuppliersScreen(), // 8
     CategoriesScreen(), // 9
@@ -76,7 +77,7 @@ class AppContainer extends ConsumerWidget {
             case 5:
               return localizations.get('customers');
             case 6:
-              return localizations.get('vehicles');
+              return localizations.get('Product Types');
             case 7:
               return localizations.get('invoices');
             case 8:
@@ -136,7 +137,7 @@ class AppContainer extends ConsumerWidget {
               address: "address",
               capacityUnit: "400",
               location: "location",
-              used: 20,
+              
               manager: "manager",
               productIds: "productIds",
               usedCapacity: 40,

@@ -1,88 +1,164 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:warehouse/models/warehouse.dart';
 
 class WarehouseApi {
-  static Future<bool> createNewWarehouse(Map<String, dynamic> data) async {
+  static const String _base = 'http://127.0.0.1:8000/api';
+
+  static const _storage = FlutterSecureStorage();
+
+  static Future<Map<String, String>> _headers() async {
+    final token = await _storage.read(key: 'token');
+    return {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  // ---------- جلب كل المستودعات ----------
+  static Future<List<Warehouse>> fetchAllWarehouses() async {
+    final url = Uri.parse('$_base/show_all_warehouses');
+    final res = await http.get(url, headers: await _headers());
+
+    debugPrint('[GET] $url  => ${res.statusCode}');
+    debugPrint('CT: ${res.headers['content-type']}');
+    if (res.statusCode == 401) {
+      throw Exception('Unauthorized');
+    }
+    if (!(res.statusCode == 200 ||
+        res.statusCode == 201 ||
+        res.statusCode == 202)) {
+      throw Exception(
+          'Failed to load warehouses (${res.statusCode}) - ${res.body}');
+    }
+
     try {
-      const storage = FlutterSecureStorage();
-      final token = await storage.read(key: 'token');
+      String body = res.body.trim();
 
-      final response = await http.post(
-        Uri.parse('http://127.0.0.1:8000/api/create_new_warehouse'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(data),
-      );
+      // قصّ أي ضجيج نصي قبل JSON (مثل "i am herer")
+      final start = body.indexOf(RegExp(r'[\{\[]')); // أول { أو [
+      if (start > 0) body = body.substring(start);
+      // قصّ أي ضجيج بعد JSON (لو وجد)
+      final lastBrace = body.lastIndexOf('}');
+      final lastBracket = body.lastIndexOf(']');
+      final end = (lastBrace > lastBracket) ? lastBrace : lastBracket;
+      if (end != -1 && end + 1 < body.length) body = body.substring(0, end + 1);
 
-      print("Response body: ${response.body}");
-      print("Warehouse creation response: ${response.statusCode}");
+      final decoded = jsonDecode(body);
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return true;
-      } else {
-        return false;
+      List<dynamic> listDyn = const [];
+      if (decoded is List) {
+        listDyn = decoded;
+      } else if (decoded is Map) {
+        final m = Map<String, dynamic>.from(decoded);
+        if (m['warehouses'] is List) {
+          listDyn = List<dynamic>.from(m['warehouses']);
+        } else if (m['data'] is List) {
+          listDyn = List<dynamic>.from(m['data']);
+        } else if (m['items'] is List) {
+          listDyn = List<dynamic>.from(m['items']);
+        } else {
+          listDyn = const [];
+        }
       }
-    } catch (e) {
-      print('Error creating warehouse: $e');
-      debugPrint("Sending warehouse data: $data");
 
-      return false;
+      return listDyn
+          .whereType<Map>()
+          .map((e) => Warehouse.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e) {
+      debugPrint('Warehouse parse error: $e');
+      throw Exception('Bad warehouses JSON: $e');
     }
   }
 
-  static Future<List<Warehouse>> fetchAllWarehouses() async {
-    const storage = FlutterSecureStorage();
-    final token = await storage.read(key: 'token');
+  // ---------- إضافة مستودع ----------
 
-    final response = await http.get(
-      Uri.parse('http://127.0.0.1:8000/api/show_all_warehouses'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      },
+static Future<bool> createWarehouse(Map<String, dynamic> payload) async {
+  // غيّر المسار لو مختلف في باكك
+  final url = Uri.parse('$_base/create_new_warehouse');
+
+  final headers = {
+    ...await _headers(), // لازم يحتوي التوكنات المطلوبة
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+
+  debugPrint('[POST] $url');
+  debugPrint('Headers: ${headers.map((k, v) => MapEntry(k, k.toLowerCase().contains("auth") ? "***" : v))}');
+  debugPrint('Payload: ${jsonEncode(payload)}');
+
+  final res = await http.post(url, headers: headers, body: jsonEncode(payload));
+
+  debugPrint('Status: ${res.statusCode}');
+  debugPrint('CT    : ${res.headers['content-type']}');
+  debugPrint('Body  : ${res.body}');
+
+  if (res.statusCode == 200 || res.statusCode == 201 || res.statusCode == 202) {
+    return true;
+  }
+
+  // حاول استخراج رسالة مفيدة
+  try {
+    final d = jsonDecode(res.body);
+    final msg = (d['msg'] ?? d['message'] ?? d['error'] ?? d.toString()).toString();
+    throw Exception('فشل إنشاء المستودع: ${res.statusCode} - $msg');
+  } catch (_) {
+    throw Exception('فشل إنشاء المستودع: ${res.statusCode} - ${res.body}');
+  }
+}
+
+
+  // ---------- تعديل مستودع ----------
+  // يرسل warehouse_id + أي حقل تريد تعديله
+  static Future<bool> editWarehouse({
+    required int warehouseId,
+    String? name,
+    String? location,
+    double? latitude,
+    double? longitude,
+    int? typeId,
+    int? numSections,
+  }) async {
+    final payload = <String, dynamic>{
+      'warehouse_id': warehouseId,
+      if (name != null) 'name': name,
+      if (location != null) 'location': location,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (typeId != null) 'type_id': typeId,
+      if (numSections != null) 'num_sections': numSections,
+    };
+
+    final res = await http.post(
+      Uri.parse('$_base/edit_warehouse'),
+      headers: await _headers(),
+      body: jsonEncode(payload),
     );
 
-    if (response.statusCode == 200) {
-      final decoded = jsonDecode(response.body);
-      final List warehousesJson = decoded['warehouses'] ?? [];
-      return warehousesJson.map((e) => Warehouse.fromJson(e)).toList();
-    } else {
-      throw Exception("Failed to load warehouses");
-    }
+    debugPrint("Edit warehouse status: ${res.statusCode}");
+    debugPrint("Edit body: ${res.body}");
+
+    return res.statusCode == 200 || res.statusCode == 202;
   }
 
-  // services/warehouse_api.dart
+  // ---------- حذف مستودع ----------
   static Future<bool> deleteWarehouse(int id) async {
     try {
-      const storage = FlutterSecureStorage();
-      final token = await storage.read(key: 'token');
-
-      final url = Uri.parse('http://127.0.0.1:8000/api/delete_warehouse/$id');
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
+      final res = await http.get(
+        Uri.parse('$_base/delete_warehouse/$id'),
+        headers: await _headers(),
       );
 
-      print("Delete warehouse response: ${response.statusCode}");
-      debugPrint("Response body: ${response.body}");
+      debugPrint("Delete warehouse status: ${res.statusCode}");
+      debugPrint("Delete body: ${res.body}");
 
-      if (response.statusCode == 200 || response.statusCode == 202) {
-        return true; // ✅ نجاح فعلي
-      } else {
-        print("Failed to delete warehouse, status: ${response.statusCode}");
-        return false; // ❌ لا ترمِ استثناء
-      }
+      return res.statusCode == 200 || res.statusCode == 202;
     } catch (e) {
-      print("Exception in deleteWarehouse: $e");
+      debugPrint("Exception in deleteWarehouse: $e");
       return false;
     }
   }
