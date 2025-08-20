@@ -136,7 +136,7 @@ class _EditSectionDialogState extends ConsumerState<EditSectionDialog> {
     if (confirm != true) return;
 
     final api = SectionApi();
-    final bool ok = await api.deleteSection(id);
+    final bool ok = await SectionApi.deleteSection(id);
 
     if (!mounted) return;
 

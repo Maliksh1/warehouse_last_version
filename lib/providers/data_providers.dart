@@ -57,9 +57,24 @@ final List<Customer> _mockCustomers = [
 ];
 
 final List<DistributionCenter> _mockDistributionCenters = [
-  DistributionCenter(id: uuid.v4(), name: "مركز الرياض", address: "الرياض"),
-  DistributionCenter(id: uuid.v4(), name: "مركز جدة", address: "جدة"),
-  DistributionCenter(id: uuid.v4(), name: "مركز الدمام", address: "الدمام"),
+  DistributionCenter(
+    id: 1,
+    name: "مركز التوزيع الرئيسي",
+    location: "موقع مركز التوزيع الرئيسي",
+    latitude: 24.7136,
+    longitude: 46.6753,
+    warehouseId: 1,
+    numSections: 5,
+  ),
+  DistributionCenter(
+    id: 2,
+    name: "مركز التوزيع الجنوبي",
+    location: "موقع مركز التوزيع الجنوبي",
+    latitude: 16.8891,
+    longitude: 42.5511,
+    warehouseId: 2,
+    numSections: 3,
+  ),
 ];
 
 final List<Employee> _mockEmployees = [
@@ -263,7 +278,7 @@ final List<TransportTask> _initialMockTransportTasks = [
       scheduledStartTime: DateTime.now().subtract(Duration(days: 1)),
       itemsDescription: 'أجهزة إلكترونية',
       fromLocationId: _initialMockWarehouses[0].id,
-      toLocationId: _mockDistributionCenters[0].id,
+      toLocationId: _mockDistributionCenters[0].id.toString(),
       items: []),
   TransportTask(
       id: uuid.v4(),
@@ -288,7 +303,7 @@ final List<TransportTask> _initialMockTransportTasks = [
       driverId: _mockEmployees[2].id,
       scheduledStartTime: DateTime.now().add(Duration(hours: 2)),
       itemsDescription: 'قطع غيار',
-      fromLocationId: _mockDistributionCenters[1].id,
+      fromLocationId: _mockDistributionCenters[1].id.toString(),
       toLocationId: _initialMockWarehouses[2].id,
       items: []),
 ];

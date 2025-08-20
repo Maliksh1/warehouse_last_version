@@ -1,13 +1,17 @@
-import 'imported_product.dart';
+// lib/models/warehouse_section.dart
+import 'package:warehouse/models/imported_product.dart';
 
 class WarehouseSection {
   final String id;
-  final String warehouseId;         // from existable_id
+  final String warehouseId; // من existable_id
   final String name;
-  final String supportedTypeId;     // نربطه بـ product_id (المنتج المختص به القسم)
-  final double capacity;            // نحسبها من max_storage_media_area أو من (floors*classes*positions)
-  final String capacityUnit;        // وحدة عرض للسعة - اخترنا "موقع" (positions)
-  final double occupied;            // capacity - avilable_storage_media_area (أو actual_load_product)
+  final String supportedTypeId; // من product_id
+  final double
+      capacity; // max_storage_media_area أو مشتقة من (floors*classes*positions)
+  final String capacityUnit; // للعرض فقط (مثلاً: "موقع")
+  final double
+      occupied; // capacity - avilable_storage_media_area (أو actual_load_product)
+  final String status; // active / deleted
   final List<ImportedProduct> products;
 
   WarehouseSection({
@@ -18,54 +22,62 @@ class WarehouseSection {
     required this.capacity,
     required this.capacityUnit,
     required this.occupied,
+    required this.status,
     this.products = const [],
   });
 
   factory WarehouseSection.fromJson(Map<String, dynamic> json) {
-    num? n(dynamic v) => (v is num) ? v : num.tryParse('$v');
+    num? _n(dynamic v) => (v is num) ? v : num.tryParse('$v');
 
-    final double floors   = (n(json['num_floors']) ?? 0).toDouble();
-    final double classes  = (n(json['num_classes']) ?? 0).toDouble();
-    final double posOnCls = (n(json['num_positions_on_class']) ?? 0).toDouble();
+    final double floors = (_n(json['num_floors']) ?? 0).toDouble();
+    final double classes = (_n(json['num_classes']) ?? 0).toDouble();
+    final double posOnCls =
+        (_n(json['num_positions_on_class']) ?? 0).toDouble();
 
-    // السعة القصوى بحسب الرد (إن وُجدت) وإلا نشتقها من (floors*classes*positions)
-    final double maxArea = (n(json['max_storage_media_area'])?.toDouble())
-        ?? (floors * classes * posOnCls);
+    // إن وُجد max_storage_media_area نأخذه، وإلا نشتق من (floors * classes * positions)
+    final double maxArea = (_n(json['max_storage_media_area'])?.toDouble()) ??
+        (floors * classes * posOnCls);
 
     final double? availableArea =
-        n(json['avilable_storage_media_area'])?.toDouble();
+        _n(json['avilable_storage_media_area'])?.toDouble();
 
-    // الإشغال: الفرق بين القصوى والمتاحة، أو استخدم actual_load_product كبديل
+    // الإشغال: الفرق بين القصوى والمتاحة، أو actual_load_product كبديل
     final double occupiedCalc = (availableArea != null)
         ? (maxArea - availableArea)
-        : (n(json['actual_load_product'])?.toDouble() ?? 0);
+        : (_n(json['actual_load_product'])?.toDouble() ?? 0);
+
+    final String statusStr = (json['status'] ?? 'active').toString();
 
     return WarehouseSection(
       id: '${json['id']}',
       warehouseId: '${json['existable_id']}',
-      name: json['name']?.toString() ?? '',
-      supportedTypeId: '${json['product_id']}',              // ربطناه بالمنتج
+      name: (json['name'] ?? '').toString(),
+      supportedTypeId: '${json['product_id']}',
       capacity: maxArea,
-      capacityUnit: 'موقع',                                  // تسمية ودّية للعرض
-      occupied: occupiedCalc.clamp(0, maxArea),
-      products: const [],                                     // لا يوجد products في الرد
+      capacityUnit: 'موقع',
+      occupied: occupiedCalc.clamp(0, maxArea).toDouble(),
+      status: statusStr,
+      products: const [], // لا توجد منتجات مفصلة في هذا الـ response
     );
   }
 
   Map<String, dynamic> toJson() {
+    final remaining = (capacity - occupied);
     return {
       'id': id,
       'existable_id': warehouseId,
       'name': name,
       'product_id': supportedTypeId,
       'max_storage_media_area': capacity,
-      'avilable_storage_media_area': (capacity - occupied),
+      'avilable_storage_media_area': remaining < 0 ? 0 : remaining,
+      'status': status,
       'capacity_unit': capacityUnit,
       'products': products.map((p) => p.toJson()).toList(),
     };
   }
 
-  double get usageRate => capacity > 0 ? occupied / capacity : 0.0;
+  double get usageRate => capacity > 0 ? (occupied / capacity) : 0.0;
+  bool get isDeleted => status.toLowerCase() == 'deleted';
 
   WarehouseSection copyWith({
     String? id,
@@ -75,6 +87,7 @@ class WarehouseSection {
     double? capacity,
     String? capacityUnit,
     double? occupied,
+    String? status,
     List<ImportedProduct>? products,
   }) {
     return WarehouseSection(
@@ -85,6 +98,7 @@ class WarehouseSection {
       capacity: capacity ?? this.capacity,
       capacityUnit: capacityUnit ?? this.capacityUnit,
       occupied: occupied ?? this.occupied,
+      status: status ?? this.status,
       products: products ?? this.products,
     );
   }

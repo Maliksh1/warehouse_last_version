@@ -31,7 +31,7 @@ class _AddSectionDialogState extends ConsumerState<AddSectionDialog> {
   final _classesCtrl = TextEditingController();
   final _positionsCtrl = TextEditingController();
 
-  int? _selectedProductId;
+  String? _selectedProductId;
   bool _submitting = false;
 
   @override
@@ -72,7 +72,7 @@ class _AddSectionDialogState extends ConsumerState<AddSectionDialog> {
     final payload = <String, dynamic>{
       "existable_type": "Warehouse", // كما يتوقع الباك
       "existable_id": wid,
-      "product_id": _selectedProductId,
+      "product_id": int.tryParse(_selectedProductId!) ?? _selectedProductId,
       "num_floors": int.parse(_floorsCtrl.text.trim()),
       "num_classes": int.parse(_classesCtrl.text.trim()),
       "num_positions_on_class": int.parse(_positionsCtrl.text.trim()),
@@ -112,9 +112,10 @@ class _AddSectionDialogState extends ConsumerState<AddSectionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // جميع المنتجات، ونفلترها على نوع المستودع إن توفّر typeId
+    // اجلب المنتجات وفلتر حسب نوع المستودع
     final products = ref.watch(productProvider);
-    int? widTypeId = int.tryParse('${widget.warehouse.typeId ?? ''}'.trim());
+    final int? widTypeId =
+        int.tryParse('${widget.warehouse.typeId ?? ''}'.trim());
 
     final filtered = (widTypeId == null)
         ? products
@@ -122,6 +123,9 @@ class _AddSectionDialogState extends ConsumerState<AddSectionDialog> {
             final pType = int.tryParse('${p.typeId}'.trim());
             return pType != null && pType == widTypeId;
           }).toList();
+
+    // ✅ هذا السطر يجب أن يكون داخل build
+    final bool hasItems = filtered.isNotEmpty;
 
     return AlertDialog(
       title: const Text('إضافة قسم'),
@@ -132,24 +136,28 @@ class _AddSectionDialogState extends ConsumerState<AddSectionDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // اختيار المنتج الخاص بالقسم
-              DropdownButtonFormField<int>(
+              DropdownButtonFormField<String>(
                 value: _selectedProductId,
                 isExpanded: true,
+                // (احذف menuMaxHeight إذا سبّب خطأ في نسختك)
+                // menuMaxHeight: 320,
                 decoration: const InputDecoration(
                   labelText: 'المنتج المخزَّن في هذا القسم (product_id)',
                   border: OutlineInputBorder(),
                 ),
                 items: filtered.map((p) {
-                  final pid = int.tryParse('${p.id}') ?? -1;
-                  return DropdownMenuItem<int>(
-                    value: pid,
-                    child: Text('${p.name} (id: $pid)'),
+                  final idStr = '${p.id}'.trim(); // ابقها String
+                  return DropdownMenuItem<String>(
+                    value: idStr,
+                    child: Text('${p.name} (id: $idStr)'),
                   );
                 }).toList(),
-                onChanged: _submitting
+                onChanged: (_submitting || !hasItems)
                     ? null
                     : (v) => setState(() => _selectedProductId = v),
-                validator: (v) => v == null ? 'مطلوب' : null,
+                validator: (v) => hasItems
+                    ? (v == null ? 'مطلوب' : null)
+                    : 'لا توجد منتجات متوافقة',
               ),
               const SizedBox(height: 10),
 
@@ -165,7 +173,6 @@ class _AddSectionDialogState extends ConsumerState<AddSectionDialog> {
               ),
               const SizedBox(height: 10),
 
-              // num_floors / num_classes
               Row(
                 children: [
                   Expanded(
@@ -197,7 +204,6 @@ class _AddSectionDialogState extends ConsumerState<AddSectionDialog> {
               ),
               const SizedBox(height: 10),
 
-              // num_positions_on_class
               TextFormField(
                 controller: _positionsCtrl,
                 decoration: const InputDecoration(
@@ -223,8 +229,7 @@ class _AddSectionDialogState extends ConsumerState<AddSectionDialog> {
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+                  child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.save),
           label: Text(_submitting ? 'جارٍ الحفظ...' : 'إضافة'),
         ),
