@@ -36,6 +36,8 @@ class DistributionCenter {
     );
   }
 
+  get typeName => null;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,

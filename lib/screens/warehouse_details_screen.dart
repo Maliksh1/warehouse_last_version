@@ -8,13 +8,14 @@ import 'package:warehouse/models/warehouse.dart';
 import 'package:warehouse/models/warehouse_section.dart';
 import 'package:warehouse/providers/product_provider.dart';
 import 'package:warehouse/providers/warehouse_section_provider.dart';
+import 'package:warehouse/screens/employees_screen.dart';
 import 'package:warehouse/services/section_api.dart';
 
 // Distribution Centers
 import 'package:warehouse/models/distribution_center.dart';
 import 'package:warehouse/providers/distribution_center_provider.dart';
 import 'package:warehouse/services/distribution_center_api.dart';
-
+import 'package:warehouse/screens/distribution_center_details_screen.dart';
 // حوارات إضافة/تعديل قسم
 import 'package:warehouse/widgets/Dialogs/add_section_dialog.dart';
 import 'package:warehouse/widgets/Dialogs/edit_section_dialog.dart';
@@ -281,7 +282,7 @@ class _DistributionCentersTab extends ConsumerWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) =>
-                                _DistributionCenterDetailsPage(center: c),
+                                DistributionCenterDetailsScreen(center: c),
                           ),
                         );
                       },
@@ -1215,10 +1216,21 @@ class _ControlPanelTab extends StatelessWidget {
       ),
       _ActionTile(
         no: 2,
-        title: 'رؤية الموظفين',
+        title: 'الموظفون',
         subtitle: 'عرض طاقم المستودع',
         icon: Icons.groups_2_outlined,
-        onTap: () {},
+        onTap: () {
+          final wid = int.tryParse(warehouse.id) ?? -1;
+          debugPrint('Tapped موظفون (Warehouse #$wid)');
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => EmployeesScreen(
+                placeType: 'Warehouse',
+                placeId: wid,
+              ),
+            ),
+          );
+        },
       ),
       _ActionTile(
         no: 3,

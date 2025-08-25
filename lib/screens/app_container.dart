@@ -41,7 +41,8 @@ class AppContainer extends ConsumerWidget {
     DashboardHome(), // 0
     WarehousesScreen(), // 1
     ProductsScreen(), // 2
-    EmployeesScreen(), // 3
+   const EmployeesScreen(), // 3
+ // 3
     DistributionCentersScreen(), // 4
     CustomersScreen(), // 5
     ProductTypesScreen(), // 6

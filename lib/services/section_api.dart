@@ -259,38 +259,22 @@ class SectionApi {
 
     throw Exception(_msgFromBody(res.body) ?? 'Failed (${res.statusCode})');
   }
+  static Future<List<WarehouseSection>> fetchSectionsByDistributionCenter(int dcId) async {
+  final url = Uri.parse('$_base/show_sections_on_place/DistributionCenter/$dcId');
+  final res = await http.get(url, headers: await _headers());
+  debugPrint('[GET] $url -> ${res.statusCode}\n${res.body}');
+
+  if (res.statusCode ~/ 100 == 2) {
+    final data = jsonDecode(res.body);
+    final List list = (data['sections'] as List?) ?? const [];
+    return list.map((e) => WarehouseSection.fromJson(
+      Map<String, dynamic>.from(e as Map),
+    )).toList();
+  }
+
+  throw Exception('Failed to load sections (${res.statusCode})');
+}
 }
 
-  // Future<List<WarehouseSection>> fetchSectionsByDistrbution(
-  //     int warehouseId) async {
-  //   final storage = const FlutterSecureStorage();
-  //   final token = await storage.read(key: 'token');
 
-  //   final url = Uri.parse(
-  //     'http://127.0.0.1:8000/api/show_sections_on_place/DistributionCenter/$DistributionCenterid',
-  //   );
-
-  //   final res = await http.get(url, headers: {
-  //     'Authorization': 'Bearer $token',
-  //     'Accept': 'application/json',
-  //   });
-
-  //   debugPrint('Fetch sections status: ${res.statusCode}');
-  //   debugPrint('Body: ${res.body}');
-
-  //   // ✅ اعتبر أي 2xx نجاحًا
-  //   if (res.statusCode ~/ 100 == 2) {
-  //     final data = jsonDecode(res.body);
-  //     final List list = (data['sections'] as List?) ?? const [];
-  //     return list
-  //         .map((e) => WarehouseSection.fromJson(
-  //               Map<String, dynamic>.from(e as Map),
-  //             ))
-  //         .toList();
-  //   } else {
-  //     // اطبع الخطأ ليسهّل التشخيص
-  //     debugPrint('Fetch sections failed: ${res.statusCode} - ${res.body}');
-  //     throw Exception('Failed to load sections (${res.statusCode})');
-  //   }
-  // }
 
