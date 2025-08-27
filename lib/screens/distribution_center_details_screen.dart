@@ -27,7 +27,7 @@ class _DistributionCenterDetailsScreenState
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 6, vsync: this);
+    _tab = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -204,6 +204,7 @@ class _DcSectionsTabState extends State<_DcSectionsTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'DistributionCenterDetailsFAB',
         onPressed: _addSection,
         label: const Text('إضافة قسم'),
         icon: const Icon(Icons.add),

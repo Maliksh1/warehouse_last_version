@@ -1,36 +1,35 @@
+// lib/models/supplier.dart
+import 'dart:convert';
+
 class Supplier {
-  final String id; // Added unique ID
+  final int id;
   final String name;
-  final String contactPerson; // Renamed from 'contact' for clarity
-  final String phoneNumber; // Added phone number
-  final String? email; // Added email (optional)
-  final String address; // Added address
-  final String paymentTerms; // e.g., "Net 30", "Due on receipt"
-  final List<String> productIds; // List of IDs of products supplied (optional)
+  final String country;
+  final String identifier;
+  final String communicationWay;
+  final String? createdAt;
+  final String? updatedAt;
 
   Supplier({
     required this.id,
     required this.name,
-    required this.contactPerson,
-    required this.phoneNumber,
-    this.email,
-    required this.address,
-    required this.paymentTerms,
-    this.productIds = const [],
-    required String contact, // Initialize with empty list
+    required this.country,
+    required this.identifier,
+    required this.communicationWay,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory Supplier.fromJson(Map<String, dynamic> json) {
     return Supplier(
       id: json['id'],
       name: json['name'],
-      contactPerson: json['contactPerson'],
-      phoneNumber: json['phoneNumber'],
-      email: json['email'],
-      address: json['address'],
-      paymentTerms: json['paymentTerms'],
-      productIds: List<String>.from(json['productIds'] ?? []),
-      contact: '',
+      country: json['country'],
+      identifier: json['identifier'],
+      // The backend uses 'comunication_way', so we map it here.
+      communicationWay: json['comunication_way'],
+      createdAt: json['created_at'],
+      updatedAt: json['updated_at'],
     );
   }
 
@@ -38,12 +37,16 @@ class Supplier {
     return {
       'id': id,
       'name': name,
-      'contactPerson': contactPerson,
-      'phoneNumber': phoneNumber,
-      'email': email,
-      'address': address,
-      'paymentTerms': paymentTerms,
-      'productIds': productIds,
+      'country': country,
+      'identifier': identifier,
+      'comunication_way': communicationWay,
+      'created_at': createdAt,
+      'updated_at': updatedAt,
     };
+  }
+
+  static List<Supplier> fromJsonList(String source) {
+    final decoded = json.decode(source) as List<dynamic>;
+    return decoded.map((e) => Supplier.fromJson(e)).toList();
   }
 }

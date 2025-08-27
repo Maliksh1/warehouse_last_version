@@ -58,6 +58,7 @@ class _WarehousesScreenState extends ConsumerState<WarehousesScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'warehousesScreenFAB',
         onPressed: () async {
           final added = await showAddWarehouseDialog(context, ref);
           if (added == true && mounted) {

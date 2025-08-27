@@ -6,7 +6,7 @@ import 'package:warehouse/services/garage_api.dart';
 
 class GarageDetailsScreen extends StatefulWidget {
   final GarageItem garage;
-  const GarageDetailsScreen({super.key, required this.garage});
+  const GarageDetailsScreen({super.key, required this.garage, required int garageId});
 
   @override
   State<GarageDetailsScreen> createState() => _GarageDetailsScreenState();
@@ -52,6 +52,7 @@ class _GarageDetailsScreenState extends State<GarageDetailsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'GarageDetailsScreenFAB',
         onPressed: _importVehicle,
         label: const Text('استيراد مركبة'),
         icon: const Icon(Icons.add),
@@ -65,7 +66,7 @@ class _GarageDetailsScreenState extends State<GarageDetailsScreen> {
           if (snapshot.hasError) {
             // Handle 404 "no vehicles" gracefully
             if (snapshot.error.toString().contains('Failed to load vehicles')) {
-               return const Center(child: Text('لا توجد مركبات في هذا الكراج.'));
+              return const Center(child: Text('لا توجد مركبات في هذا الكراج.'));
             }
             return Center(child: Text('خطأ: ${snapshot.error}'));
           }
@@ -80,7 +81,8 @@ class _GarageDetailsScreenState extends State<GarageDetailsScreen> {
               final vehicle = vehicles[index];
               return Card(
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: CircleAvatar(
@@ -90,8 +92,10 @@ class _GarageDetailsScreenState extends State<GarageDetailsScreen> {
                           : Icons.directions_car,
                     ),
                   ),
-                  title: Text(vehicle.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('السعة: ${vehicle.capacity} • الصلاحية: ${vehicle.expiration}'),
+                  title: Text(vehicle.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(
+                      'السعة: ${vehicle.capacity} • الصلاحية: ${vehicle.expiration}'),
                 ),
               );
             },

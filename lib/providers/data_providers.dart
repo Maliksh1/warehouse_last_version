@@ -1,5 +1,16 @@
-// lib/providers/data_provider.dart
+// lib/providers/data_providers.dart
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:warehouse/models/pending_import_operation.dart';
+import 'package:warehouse/models/storage_media.dart';
+import 'package:warehouse/models/warehouse_section.dart';
+import 'package:warehouse/services/distribution_center_api.dart';
+import 'package:warehouse/services/garage_api.dart';
+import 'package:warehouse/services/import_api.dart';
+
+// services
+import 'package:warehouse/services/product_api.dart'; // <-- استيراد جديد
 
 // نماذج المشروع
 import 'package:warehouse/models/category.dart';
@@ -18,25 +29,27 @@ import 'package:warehouse/models/stock_item.dart';
 
 // في المشروع لديك productProvider منفصل
 import 'package:warehouse/providers/product_provider.dart';
+import 'package:warehouse/services/suppliers_api.dart';
+import 'package:warehouse/services/warehouse_api.dart';
+
+// ======================
+//  Providers
+// ======================
 
 /// ======================
-///  Fetch (بدون Mock)
+///  Fetch (بدون Mock)
 /// ======================
 /// مبدئيًا: نعطي قوائم فاضية. لاحقًا يمكن ربط كل واحدة بخدمة API مناسبة.
 
 Future<List<Category>> fetchCategories() async {
-  // TODO: اربط مع API التصنيفات إن وجِد
   return const <Category>[];
 }
 
 Future<List<Customer>> fetchCustomers() async {
-  // TODO: اربط مع API الزبائن
   return const <Customer>[];
 }
 
 Future<List<DistributionCenter>> fetchDistributionCenters() async {
-  // ملاحظة: لديك بالفعل مزود مخصص حسب الـ warehouse (distributionCentersProvider),
-  // هذا مزود عام يعود بقائمة فاضية حتى لا يتعارض مع شيء.
   return const <DistributionCenter>[];
 }
 
@@ -71,7 +84,7 @@ Future<List<Vehicle>> fetchVehicles() async {
 }
 
 /// ======================
-///  State Notifiers
+///  State Notifiers
 /// ======================
 
 class WarehouseNotifier extends StateNotifier<AsyncValue<List<Warehouse>>> {
@@ -121,13 +134,11 @@ class StockItemNotifier extends StateNotifier<AsyncValue<List<StockItem>>> {
 }
 
 /// ======================
-///  Riverpod Providers
+///  Riverpod Providers
 /// ======================
 
 final warehousesProvider =
-    StateNotifierProvider<WarehouseNotifier, AsyncValue<List<Warehouse>>>(
-  (ref) => WarehouseNotifier(),
-);
+    FutureProvider<List<Warehouse>>((ref) => WarehouseApi.fetchAllWarehouses());
 
 final transportTasksProvider = StateNotifierProvider<TransportTaskNotifier,
     AsyncValue<List<TransportTask>>>(
@@ -147,13 +158,13 @@ final customersListProvider =
 
 final distributionCentersListProvider =
     FutureProvider<List<DistributionCenter>>(
-        (ref) => fetchDistributionCenters());
+        (ref) => DistributionCenterApi.fetchAllDistributionCenters());
 
 final employeesListProvider =
     FutureProvider<List<Employee>>((ref) => fetchEmployees());
 
 final garageItemsListProvider =
-    FutureProvider<List<GarageItem>>((ref) => fetchGarageItems());
+    FutureProvider<List<GarageItem>>((ref) => GarageApi.fetchAllGarages());
 
 final invoicesListProvider =
     FutureProvider<List<Invoice>>((ref) => fetchInvoices());
@@ -164,8 +175,8 @@ final productsListProvider =
 final specializationsListProvider =
     FutureProvider<List<Specialization>>((ref) => fetchSpecializations());
 
-final suppliersListProvider =
-    FutureProvider<List<Supplier>>((ref) => fetchSuppliers());
+// final suppliersListProvider =
+//     FutureProvider<List<Supplier>>((ref) => fetchSuppliers());
 
 final vehiclesListProvider =
     FutureProvider<List<Vehicle>>((ref) => fetchVehicles());
@@ -177,7 +188,8 @@ final warehouseByIdProvider =
   return warehousesAsync.when(
     data: (ws) {
       try {
-        return AsyncValue.data(ws.firstWhere((w) => w.id == warehouseId));
+        return AsyncValue.data(
+            ws.firstWhere((w) => w.id.toString() == warehouseId));
       } catch (_) {
         return const AsyncValue.data(null);
       }
@@ -192,7 +204,8 @@ final stockItemsByWarehouseProvider =
     Provider.family<AsyncValue<List<StockItem>>, String>((ref, warehouseId) {
   final stockAsync = ref.watch(stockItemsProvider);
   return stockAsync.whenData(
-    (items) => items.where((it) => it.warehouseId == warehouseId).toList(),
+    (items) =>
+        items.where((it) => it.warehouseId.toString() == warehouseId).toList(),
   );
 });
 
@@ -209,7 +222,8 @@ final stockItemsByWarehouseAndProductProvider =
   final productId = params['productId']!;
   final stockAsync = ref.watch(stockItemsByWarehouseProvider(warehouseId));
   return stockAsync.whenData(
-    (items) => items.where((it) => it.productId == productId).toList(),
+    (items) =>
+        items.where((it) => it.productId.toString() == productId).toList(),
   );
 });
 
@@ -218,7 +232,7 @@ final productByIdProvider =
     Provider.family<AsyncValue<Product>, String>((ref, id) {
   final products = ref.watch(productProvider);
   try {
-    final product = products.firstWhere((p) => p.id == id);
+    final product = products.firstWhere((p) => p.id.toString() == id);
     return AsyncValue.data(product);
   } catch (_) {
     return AsyncValue.error('المنتج غير موجود', StackTrace.current);
@@ -229,8 +243,8 @@ final productByIdProvider =
 
 final overdueTasksCountProvider = Provider<AsyncValue<int>>((ref) {
   final tasks = ref.watch(transportTasksProvider);
-  return tasks.whenData((list) =>
-      list.where((t) => t.status == TransportTaskStatus.delayed).length);
+  return tasks
+      .whenData((list) => list.where((t) => t.status == 'delayed').length);
 });
 
 final totalTasksCountProvider = Provider<AsyncValue<int>>((ref) {
@@ -240,14 +254,14 @@ final totalTasksCountProvider = Provider<AsyncValue<int>>((ref) {
 
 final availableVehiclesCountProvider = Provider<AsyncValue<int>>((ref) {
   final vehicles = ref.watch(vehiclesListProvider);
-  return vehicles.whenData(
-      (list) => list.where((v) => v.status == VehicleStatus.available).length);
+  return vehicles
+      .whenData((list) => list.where((v) => v.status == 'available').length);
 });
 
 final pendingInvoicesCountProvider = Provider<AsyncValue<int>>((ref) {
   final invoices = ref.watch(invoicesListProvider);
-  return invoices.whenData(
-      (list) => list.where((i) => i.status == InvoiceStatus.pending).length);
+  return invoices
+      .whenData((list) => list.where((i) => i.status == 'pending').length);
 });
 
 final totalWarehousesCountProvider = Provider<AsyncValue<int>>((ref) {
@@ -261,6 +275,95 @@ final warehouseOccupancyProvider =
   return warehouses.whenData((list) {
     return list.map((w) => WarehouseOccupancyData(w.name)).toList();
   });
+});
+final garageItemsByPlaceProvider =
+    FutureProvider.family<List<GarageItem>, Map<String, dynamic>>(
+        (ref, params) {
+  final String placeType = params['placeType'] as String;
+  final int placeId = params['placeId'] as int;
+  return GarageApi.fetchGaragesForPlace(placeType, placeId);
+});
+
+@immutable
+class PlaceParameter {
+  final String placeType;
+  final int placeId;
+
+  const PlaceParameter({required this.placeType, required this.placeId});
+
+  //重写 == 和 hashCode ليتأكد Riverpod من أن الكائنين متطابقان
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PlaceParameter &&
+          runtimeType == other.runtimeType &&
+          placeType == other.placeType &&
+          placeId == other.placeId;
+
+  @override
+  int get hashCode => placeType.hashCode ^ placeId.hashCode;
+}
+
+// --- 2. تحديث الـ Provider ليستخدم الكلاس الجديد ---
+// استخدام .autoDispose لحذف البيانات عند الخروج من الشاشة (ممارسة جيدة)
+final productsByPlaceProvider =
+    FutureProvider.family<List<Product>, Map<String, dynamic>>((ref, params) {
+  final String placeType = params['placeType'] as String;
+  final int placeId = params['placeId'] as int;
+  return ProductApi.fetchProductsForPlace(placeType, placeId);
+});
+final suppliersListProvider = FutureProvider.autoDispose<List<Supplier>>((ref) {
+  return SuppliersApi.fetchSuppliers();
+});
+
+/// Provider لجلب منتجات مورد معين
+final supplierProductsProvider =
+    FutureProvider.autoDispose.family<List<Product>, int>((ref, supplierId) {
+  return SuppliersApi.fetchProductsForSupplier(supplierId);
+});
+final pendingImportsProvider =
+    FutureProvider.autoDispose<List<PendingImportOperation>>((ref) {
+  return ImportApi.fetchPendingImportOperations();
+});
+
+/// Provider لجلب قائمة جميع وسائط التخزين (الخطوة الأولى)
+final storageMediaListProvider =
+    FutureProvider.autoDispose<List<StorageMedia>>((ref) {
+  return ImportApi.fetchStorageMedia();
+});
+
+/// Provider لجلب الموردين لوسيط تخزين معين (الخطوة الثانية)
+final suppliersForMediaProvider = FutureProvider.autoDispose
+    .family<List<Supplier>, int>((ref, storageMediaId) {
+  return ImportApi.fetchSuppliersForMedia(storageMediaId);
+});
+
+/// Provider لجلب المستودعات لوسيط تخزين معين (الخطوة الثالثة)
+final warehousesForMediaProvider = FutureProvider.autoDispose
+    .family<List<Warehouse>, int>((ref, storageMediaId) {
+  return ImportApi.fetchWarehousesForMedia(storageMediaId);
+});
+
+/// Provider لجلب قائمة جميع وسائط التخزين (الخطوة الأولى)
+
+// --- Providers جديدة للخطوة الرابعة ---
+
+/// Provider لجلب الأقسام لمكان معين (مستودع أو مركز توزيع)
+final sectionsForPlaceProvider = FutureProvider.autoDispose
+    .family<List<WarehouseSection>, Map<String, dynamic>>((ref, params) {
+  final int storageMediaId = params['storageMediaId'];
+  final String placeType = params['placeType'];
+  final int placeId = params['placeId'];
+  return ImportApi.fetchSectionsForPlace(storageMediaId, placeType, placeId);
+});
+
+/// Provider لجلب مراكز التوزيع لمستودع معين
+final distributionCentersForWarehouseProvider = FutureProvider.autoDispose
+    .family<List<DistributionCenter>, Map<String, int>>((ref, params) {
+  final int warehouseId = params['warehouseId']!;
+  final int storageMediaId = params['storageMediaId']!;
+  return ImportApi.fetchDistributionCentersForWarehouse(
+      warehouseId, storageMediaId);
 });
 
 class WarehouseOccupancyData {

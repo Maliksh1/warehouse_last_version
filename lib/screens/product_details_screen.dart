@@ -34,14 +34,12 @@ class ProductDetailsScreen extends ConsumerWidget {
       data: (list) => list
           .firstWhere((s) => s.id == product.supplierId,
               orElse: () => Supplier(
-                    id: '',
-                    name: 'غير معروف',
-                    contactPerson: '',
-                    phoneNumber: '',
-                    address: '',
-                    paymentTerms: '',
-                    contact: '',
-                  ))
+                   id: 0,
+                   name: 'غير معروف',
+                   country: '',
+                   identifier: '',
+                   communicationWay: '',
+                 ))
           .name,
       loading: () => '...',
       error: (_, __) => 'خطأ',

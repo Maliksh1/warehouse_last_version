@@ -13,6 +13,9 @@ class WarehouseSection {
       occupied; // capacity - avilable_storage_media_area (أو actual_load_product)
   final String status; // active / deleted
   final List<ImportedProduct> products;
+  final Map<String, dynamic>? existable;
+  final double? storageMediaAvailableArea;
+  final double? storageMediaMaxArea;
 
   WarehouseSection({
     required this.id,
@@ -24,7 +27,17 @@ class WarehouseSection {
     required this.occupied,
     required this.status,
     this.products = const [],
+    this.existable,
+    this.storageMediaAvailableArea,
+    this.storageMediaMaxArea,
   });
+  static double _calculateCapacity(Map<String, dynamic> json) {
+    final floors = (json['num_floors'] as num?)?.toDouble() ?? 1.0;
+    final classes = (json['num_classes'] as num?)?.toDouble() ?? 1.0;
+    final positions =
+        (json['num_positions_on_class'] as num?)?.toDouble() ?? 1.0;
+    return floors * classes * positions;
+  }
 
   factory WarehouseSection.fromJson(Map<String, dynamic> json) {
     num? _n(dynamic v) => (v is num) ? v : num.tryParse('$v');
@@ -47,6 +60,7 @@ class WarehouseSection {
         : (_n(json['actual_load_product'])?.toDouble() ?? 0);
 
     final String statusStr = (json['status'] ?? 'active').toString();
+    
 
     return WarehouseSection(
       id: '${json['id']}',
@@ -57,7 +71,12 @@ class WarehouseSection {
       capacityUnit: 'موقع',
       occupied: occupiedCalc.clamp(0, maxArea).toDouble(),
       status: statusStr,
+      existable: json['existable'] as Map<String, dynamic>?,
       products: const [], // لا توجد منتجات مفصلة في هذا الـ response
+      storageMediaAvailableArea:
+    (json['storage_media_avilable_area'] as num?)?.toDouble(),
+    storageMediaMaxArea:
+    (json['storage_media_max_area'] as num?)?.toDouble(),
     );
   }
 

@@ -159,6 +159,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'EmployeeScreenFAB',
         onPressed: _addEmployee,
         icon: const Icon(Icons.person_add_alt),
         label: const Text('إضافة موظف'),

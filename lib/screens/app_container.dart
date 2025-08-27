@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/models/warehouse.dart';
+import 'package:warehouse/screens/create_import_screen.dart';
+import 'package:warehouse/screens/pending_import_screen.dart';
 import 'package:warehouse/screens/product_type_screen.dart';
 import 'package:warehouse/widgets/sidebar_menu.dart';
 import 'package:warehouse/providers/locale_provider.dart';
@@ -41,17 +43,20 @@ class AppContainer extends ConsumerWidget {
     DashboardHome(), // 0
     WarehousesScreen(), // 1
     ProductsScreen(), // 2
-   const EmployeesScreen(), // 3
- // 3
-    DistributionCentersScreen(), // 4
-    CustomersScreen(), // 5
-    ProductTypesScreen(), // 6
-    InvoicesScreen(), // 7
-    SuppliersScreen(), // 8
-    CategoriesScreen(), // 9
-    SpecializationsScreen(), // 10
-    TransportTasksScreen(), // 11
+    const EmployeesScreen(), // 3
+
+    const PendingImportsScreen(), // Index 4 (شاشة جديدة)
+    ProductTypesScreen(), // 5
+    SuppliersScreen(), // 6
+    SpecializationsScreen(), // 7
     GarageScreen(), // 12
+    CreateImportScreen(),
+    // CategoriesScreen(), // 9
+
+    // InvoicesScreen(), // 7
+    // CustomersScreen(),
+    // DistributionCentersScreen(), // 4
+    // TransportTasksScreen(), // 11
     // TODO: Add SettingsScreen() if needed (e.g., index 13)
   ];
 
@@ -76,19 +81,19 @@ class AppContainer extends ConsumerWidget {
             case 4:
               return localizations.get('distribution_centers');
             case 5:
-              return localizations.get('customers');
+              return localizations.get('pending_imports');
             case 6:
               return localizations.get('Product Types');
-            case 7:
-              return localizations.get('invoices');
+            // case 7:
+            //   return localizations.get('invoices');
             case 8:
               return localizations.get('suppliers');
-            case 9:
-              return localizations.get('categories');
+            // case 9:
+            //   return localizations.get('categories');
             case 10:
               return localizations.get('specializations');
-            case 11:
-              return localizations.get('transport_tasks');
+            // case 11:
+            //   return localizations.get('transport_tasks');
             case 12:
               return localizations.get('garage');
             // TODO: Add case for settings if added (e.g., case 13)
@@ -138,7 +143,6 @@ class AppContainer extends ConsumerWidget {
               address: "address",
               capacityUnit: "400",
               location: "location",
-              
               manager: "manager",
               productIds: "productIds",
               usedCapacity: 40,

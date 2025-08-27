@@ -68,19 +68,28 @@ class SidebarMenu extends ConsumerWidget {
       {'icon': Icons.warehouse, 'title_key': 'warehouses', 'index': 1},
       {'icon': Icons.inventory, 'title_key': 'products', 'index': 2},
       {'icon': Icons.people, 'title_key': 'employees', 'index': 3},
-      {'icon': Icons.map, 'title_key': 'distribution_centers', 'index': 4},
-      {'icon': Icons.person, 'title_key': 'customers', 'index': 5},
+      // {'icon': Icons.map, 'title_key': 'distribution_centers', 'index': 4},
+      {
+        'icon': Icons.pending_actions,
+        'title_key': 'pending_imports',
+        'index': 4
+      },
       {
         'icon': Icons.category_outlined,
         'title_key': 'product_types',
-        'index': 6
+        'index': 5
       },
-      {'icon': Icons.receipt_long, 'title_key': 'invoices', 'index': 7},
-      {'icon': Icons.store, 'title_key': 'suppliers', 'index': 8},
-      {'icon': Icons.category, 'title_key': 'categories', 'index': 9},
-      {'icon': Icons.star, 'title_key': 'specializations', 'index': 10},
-      {'icon': Icons.alt_route, 'title_key': 'transport_tasks', 'index': 11},
-      {'icon': Icons.garage, 'title_key': 'garage', 'index': 12},
+      // {'icon': Icons.receipt_long, 'title_key': 'invoices', 'index': 7},
+      {'icon': Icons.store, 'title_key': 'suppliers', 'index': 6},
+      // {'icon': Icons.category, 'title_key': 'categories', 'index': 9},
+      {'icon': Icons.star, 'title_key': 'specializations', 'index': 7},
+      // {'icon': Icons.alt_route, 'title_key': 'transport_tasks', 'index': 11},
+      {'icon': Icons.garage, 'title_key': 'garage', 'index': 8},
+      {
+        'icon': Icons.pending_actions_outlined,
+        'title_key': 'Import',
+        'index': 9
+      },
 
       // ✅ شاشة "أنواع المنتجات" الجديدة — خصصنا لها الفهرس 13
     ];

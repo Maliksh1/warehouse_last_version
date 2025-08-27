@@ -10,6 +10,7 @@ import 'package:warehouse/providers/product_provider.dart';
 import 'package:warehouse/providers/warehouse_section_provider.dart';
 import 'package:warehouse/screens/employees_screen.dart';
 import 'package:warehouse/screens/garage_screen.dart';
+import 'package:warehouse/screens/place_product_screen.dart';
 import 'package:warehouse/services/section_api.dart';
 
 // Distribution Centers
@@ -17,6 +18,7 @@ import 'package:warehouse/models/distribution_center.dart';
 import 'package:warehouse/providers/distribution_center_provider.dart';
 import 'package:warehouse/services/distribution_center_api.dart';
 import 'package:warehouse/screens/distribution_center_details_screen.dart';
+import 'package:warehouse/services/warehouse_api.dart';
 // حوارات إضافة/تعديل قسم
 import 'package:warehouse/widgets/Dialogs/add_section_dialog.dart';
 import 'package:warehouse/widgets/Dialogs/edit_section_dialog.dart';
@@ -44,7 +46,7 @@ class _WarehouseDetailScreenState extends ConsumerState<WarehouseDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 5, vsync: this);
+    _tab = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -880,7 +882,17 @@ class _ControlPanelTab extends StatelessWidget {
         title: 'منتجات المستودع',
         subtitle: 'عرض الكميات وطلبات داخلية',
         icon: Icons.inventory_outlined,
-        onTap: () {},
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (ctx) => PlaceProductsScreen(
+                placeType: 'warehouse', // تحديد النوع
+                placeId: wid,
+                placeName: warehouse.name,
+              ),
+            ),
+          );
+        },
       ),
       _ActionTile(
         no: 4,

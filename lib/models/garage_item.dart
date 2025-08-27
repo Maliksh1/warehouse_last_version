@@ -31,4 +31,10 @@ class GarageItem {
       existableId: (json['existable_id'] as num).toInt(),
     );
   }
+
+  get location => null;
+
+  get placeType => null;
+
+  get placeId => null;
 }
