@@ -1,65 +1,34 @@
-enum MaintenanceStatus {
-  scheduled,
-  inProgress,
-  completed,
-  cancelled
-} // Added Enum
+// lib/models/garage_item.dart
 
 class GarageItem {
-  final String id; // Added unique ID for the maintenance log item
-  final String vehicleId; // Link to the Vehicle ID
-  final DateTime startDate; // Date when maintenance started or was scheduled
-  final DateTime? estimatedCompletionDate; // Estimated finish date (optional)
-  final DateTime?
-      actualCompletionDate; // Date maintenance was finished (optional)
-  final String reportedIssue; // Description of the issue
-  final String? workDone; // Description of work performed (optional)
-  final String
-      assignedEmployeeId; // Link to Employee ID performing maintenance (optional)
-  final MaintenanceStatus status; // Use Enum for status
+  final int id;
+  final String sizeOfVehicle;
+  final int maxCapacity;
+  final int currentVehicles; // Assuming the backend provides this
+  final String existableType;
+  final int existableId;
 
   GarageItem({
     required this.id,
-    required this.vehicleId,
-    required this.startDate,
-    this.estimatedCompletionDate,
-    this.actualCompletionDate,
-    required this.reportedIssue,
-    this.workDone,
-    this.assignedEmployeeId = '',
-    this.status = MaintenanceStatus.scheduled, // Default status
+    required this.sizeOfVehicle,
+    required this.maxCapacity,
+    required this.currentVehicles,
+    required this.existableType,
+    required this.existableId,
   });
 
   factory GarageItem.fromJson(Map<String, dynamic> json) {
-    return GarageItem(
-      id: json['id'],
-      vehicleId: json['vehicleId'],
-      startDate: DateTime.parse(json['startDate']),
-      estimatedCompletionDate: json['estimatedCompletionDate'] != null
-          ? DateTime.parse(json['estimatedCompletionDate'])
-          : null,
-      actualCompletionDate: json['actualCompletionDate'] != null
-          ? DateTime.parse(json['actualCompletionDate'])
-          : null,
-      reportedIssue: json['reportedIssue'],
-      workDone: json['workDone'],
-      assignedEmployeeId: json['assignedEmployeeId'] ?? '',
-      status: MaintenanceStatus.values.firstWhere((e) =>
-          e.toString() == 'MaintenanceStatus.${json['status']}'), // Parse Enum
-    );
-  }
+    // Extracts the simple name e.g., "Warehouse" from "App\Models\Warehouse"
+    String type = (json['existable_type'] as String? ?? '').split('\\').last;
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'vehicleId': vehicleId,
-      'startDate': startDate.toIso8601String(), // Convert DateTime to String
-      'estimatedCompletionDate': estimatedCompletionDate?.toIso8601String(),
-      'actualCompletionDate': actualCompletionDate?.toIso8601String(),
-      'reportedIssue': reportedIssue,
-      'workDone': workDone,
-      'assignedEmployeeId': assignedEmployeeId,
-      'status': status.toString().split('.').last, // Convert Enum to String
-    };
+    return GarageItem(
+      id: (json['id'] as num).toInt(),
+      sizeOfVehicle: json['size_of_vehicle'] as String,
+      maxCapacity: (json['max_capacity'] as num).toInt(),
+      // Assuming a 'vehicles_count' is sent from the backend. Defaulting to 0 if not.
+      currentVehicles: (json['vehicles_count'] as num? ?? 0).toInt(),
+      existableType: type,
+      existableId: (json['existable_id'] as num).toInt(),
+    );
   }
 }

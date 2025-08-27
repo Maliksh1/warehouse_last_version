@@ -1,36 +1,33 @@
 // lib/screens/distribution_center_details_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:warehouse/models/distribution_center.dart';
+import 'package:warehouse/models/product.dart';
 import 'package:warehouse/models/warehouse_section.dart';
-import 'package:warehouse/models/parent_storage_media.dart';
+import 'package:warehouse/providers/api_service_provider.dart';
+import 'package:warehouse/screens/garage_screen.dart';
 import 'package:warehouse/services/section_api.dart';
-
-// شاشة الموظفين (تُستخدم داخل تبويب الموظفين)
 import 'package:warehouse/screens/employees_screen.dart';
+import 'package:warehouse/widgets/Dialogs/edit_section_dialog.dart';
 
-/// شاشة تفاصيل مركز توزيع
-class DistributionCenterDetailsScreen extends ConsumerStatefulWidget {
+class DistributionCenterDetailsScreen extends StatefulWidget {
   final DistributionCenter center;
   const DistributionCenterDetailsScreen({super.key, required this.center});
 
   @override
-  ConsumerState<DistributionCenterDetailsScreen> createState() =>
+  State<DistributionCenterDetailsScreen> createState() =>
       _DistributionCenterDetailsScreenState();
 }
 
 class _DistributionCenterDetailsScreenState
-    extends ConsumerState<DistributionCenterDetailsScreen>
+    extends State<DistributionCenterDetailsScreen>
     with TickerProviderStateMixin {
   late final TabController _tab;
-
-  int get _dcId => widget.center.id;
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 4, vsync: this);
+    _tab = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -39,29 +36,19 @@ class _DistributionCenterDetailsScreenState
     super.dispose();
   }
 
-  Future<void> _refreshAll() async {
-    setState(() {}); // إعادة بناء الـ FutureBuilders بالتبويبات
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.center.name),
-        actions: [
-          IconButton(
-            tooltip: 'تحديث',
-            onPressed: _refreshAll,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
         bottom: TabBar(
           controller: _tab,
           tabs: const [
-            Tab(text: 'تفاصيل'),
-            Tab(text: 'الأقسام'),
-            Tab(text: 'الموظفون'),
-            Tab(text: 'لوحة التحكم'),
+            Tab(icon: Icon(Icons.info_outline), text: 'تفاصيل'),
+            Tab(icon: Icon(Icons.view_week_outlined), text: 'الأقسام'),
+            Tab(icon: Icon(Icons.garage_outlined), text: 'الكراج'),
+            Tab(icon: Icon(Icons.people_outline), text: 'الموظفون'),
+            Tab(icon: Icon(Icons.dashboard_outlined), text: 'لوحة التحكم'),
           ],
         ),
       ),
@@ -69,39 +56,40 @@ class _DistributionCenterDetailsScreenState
         controller: _tab,
         children: [
           _DcOverviewTab(center: widget.center),
-          _DcSectionsTab(dcId: _dcId),
-          // ✅ تبويب الموظفين الآن يعرض شاشة الموظفين مباشرة
+          _DcSectionsTab(center: widget.center),
+          GarageScreen(
+              placeType: 'DistributionCenter', placeId: widget.center.id),
           EmployeesScreen(
             placeType: 'DistributionCenter',
-            placeId: _dcId,
-            // placeName: widget.center.name,
+            placeId: widget.center.id,
           ),
-          const _DcControlPanelTab(), // بدون بطاقة الموظفين
+          EmployeesScreen(
+            placeType: 'DistributionCenter',
+            placeId: widget.center.id,
+          ),
+          const _DcControlPanelTab(),
         ],
       ),
     );
   }
 }
 
-/// تبويب 1: تفاصيل مركز التوزيع
+// Tab 1: Overview
 class _DcOverviewTab extends StatelessWidget {
   const _DcOverviewTab({required this.center});
   final DistributionCenter center;
 
-  String _fmtD(double v) => v.toStringAsFixed(6);
-
   Widget _row(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 150,
+              width: 120,
               child: Text(label,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, height: 1.3)),
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 16),
             Expanded(child: Text(value.isEmpty ? '—' : value)),
           ],
         ),
@@ -118,30 +106,11 @@ class _DcOverviewTab extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      center.name,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  if ((center.typeName ?? '').isNotEmpty)
-                    Chip(label: Text(center.typeName!)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _row('المعرّف', '${center.id}'),
               _row('الاسم', center.name),
               _row('الموقع', center.location),
-              _row('Latitude', _fmtD(center.latitude)),
-              _row('Longitude', _fmtD(center.longitude)),
+              _row('الإحداثيات', '${center.latitude}, ${center.longitude}'),
               _row('عدد الأقسام', '${center.numSections}'),
-              if (center.warehouseId != null)
-                _row('المستودع المرتبط', '#${center.warehouseId}'),
+              _row('المستودع المرتبط', 'ID #${center.warehouseId}'),
             ],
           ),
         ),
@@ -150,256 +119,123 @@ class _DcOverviewTab extends StatelessWidget {
   }
 }
 
-/// تبويب 2: الأقسام الخاصة بمركز التوزيع
+// Tab 2: Sections
 class _DcSectionsTab extends StatefulWidget {
-  const _DcSectionsTab({required this.dcId});
-  final int dcId;
+  final DistributionCenter center;
+  const _DcSectionsTab({required this.center});
 
   @override
   State<_DcSectionsTab> createState() => _DcSectionsTabState();
 }
 
 class _DcSectionsTabState extends State<_DcSectionsTab> {
-  late Future<List<WarehouseSection>> _future;
+  late Future<List<WarehouseSection>> _sectionsFuture;
 
   @override
   void initState() {
     super.initState();
-    _future = SectionApi.fetchSectionsByDistributionCenter(widget.dcId);
+    _sectionsFuture =
+        SectionApi.fetchSectionsByDistributionCenter(widget.center.id);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<WarehouseSection>>(
-      future: _future,
-      builder: (_, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snap.hasError) {
-          return Center(
-              child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('خطأ في تحميل الأقسام:\n${snap.error}')));
-        }
-        final list = snap.data ?? const <WarehouseSection>[];
-        if (list.isEmpty) {
-          return const Center(child: Text('لا توجد أقسام لهذا المركز'));
-        }
+  void _refresh() {
+    setState(() {
+      _sectionsFuture =
+          SectionApi.fetchSectionsByDistributionCenter(widget.center.id);
+    });
+  }
 
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: list.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (_, i) {
-            final s = list[i];
-            final usage = s.usageRate.clamp(0.0, 1.0);
-            return Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(16),
-                leading: const Icon(Icons.view_week_outlined),
-                title: Text(
-                  s.name,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 6),
-                    LinearProgressIndicator(
-                      value: usage,
-                      minHeight: 6,
-                      backgroundColor: Colors.grey.shade300,
-                    ),
-                    const SizedBox(height: 6),
-                    Text('الاستخدام: ${(usage * 100).toStringAsFixed(1)}%'),
-                    Text(
-                        'السعة: ${s.capacity.toStringAsFixed(0)} ${s.capacityUnit}'),
-                    if (s.supportedTypeId.isNotEmpty)
-                      Text('النوع المدعوم: ${s.supportedTypeId}'),
-                  ],
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => _DcSectionDetailsScreen(section: s),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        );
-      },
+  void _addSection() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => _AddSectionToCenterDialog(center: widget.center),
     );
+    if (result == true) {
+      _refresh();
+    }
   }
-}
 
-/// شاشة تفاصيل القسم (نسخة خفيفة خاصة بمراكز التوزيع)
-class _DcSectionDetailsScreen extends StatefulWidget {
-  final WarehouseSection section;
-  const _DcSectionDetailsScreen({required this.section});
+  void _editSection(WarehouseSection section) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => EditSectionDialog(section: section),
+    );
+    if (result == true) {
+      _refresh();
+    }
+  }
 
-  @override
-  State<_DcSectionDetailsScreen> createState() =>
-      _DcSectionDetailsScreenState();
-}
+  void _deleteSection(WarehouseSection section) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('تأكيد الإلغاء'),
+        content: Text('هل تريد إلغاء القسم "${section.name}"؟ (سيتم أرشفته)'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('تراجع')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('نعم، إلغاء'),
+          ),
+        ],
+      ),
+    );
 
-class _DcSectionDetailsScreenState extends State<_DcSectionDetailsScreen> {
-  Future<StorageElementsResult>? _future;
-
-  @override
-  void initState() {
-    super.initState();
-    final id = int.tryParse(widget.section.id);
-    if (id != null) {
-      _future = SectionApi.fetchStorageElementsOnSection(id);
+    if (confirm == true) {
+      final id = int.tryParse(section.id);
+      if (id == null) return;
+      final success = await SectionApi.deleteSection(id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(success
+              ? 'تم إلغاء القسم بنجاح'
+              : (SectionApi.lastErrorMessage ?? 'فشل الإلغاء')),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ));
+        if (success) _refresh();
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('القسم: ${widget.section.name}')),
-      body: _future == null
-          ? const Center(child: Text('معرّف القسم غير صالح'))
-          : FutureBuilder<StorageElementsResult>(
-              future: _future,
-              builder: (_, snap) {
-                if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snap.hasError) {
-                  return Center(
-                      child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text('خطأ في تحميل وسائط التخزين:\n${snap.error}'),
-                  ));
-                }
-                final res = snap.data!;
-                if (res.elements.isEmpty) {
-                  return const Center(child: Text('لا توجد وسائط تخزين'));
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: res.elements.length + (res.parent != null ? 1 : 0),
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) {
-                    if (res.parent != null && i == 0) {
-                      final p = res.parent!;
-                      return Card(
-                        elevation: 1,
-                        child: ListTile(
-                          leading: const Icon(Icons.account_tree_outlined),
-                          title: Text(
-                            'الوسيط الأب: ${p.name?.isNotEmpty == true ? p.name! : '#${p.id}'}',
-                          ),
-                        ),
-                      );
-                    }
-                    final idx = res.parent != null ? i - 1 : i;
-                    final el = res.elements[idx];
-                    return Card(
-                      elevation: 1,
-                      child: ListTile(
-                        leading: const Icon(Icons.inventory_2_outlined),
-                        title: Text(el.code?.isNotEmpty == true
-                            ? el.code!
-                            : '#${el.id}'),
-                        subtitle: (el.status == null || el.status!.isEmpty)
-                            ? null
-                            : Text('الحالة: ${el.status}'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  _StorageElementDetailsScreen(element: el),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addSection,
+        label: const Text('إضافة قسم'),
+        icon: const Icon(Icons.add),
+      ),
+      body: FutureBuilder<List<WarehouseSection>>(
+        future: _sectionsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('خطأ: ${snapshot.error}'));
+          }
+          final sections = snapshot.data ?? [];
+          if (sections.isEmpty) {
+            return const Center(
+                child: Text('لا توجد أقسام في هذا المركز بعد.'));
+          }
+          return RefreshIndicator(
+            onRefresh: () async => _refresh(),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: sections.length,
+              itemBuilder: (context, index) {
+                final section = sections[index];
+                return _SectionCard(
+                  section: section,
+                  onEdit: () => _editSection(section),
+                  onDelete: () => _deleteSection(section),
                 );
               },
             ),
-    );
-  }
-}
-
-/// تفاصيل وسيطة التخزين: تعرض الكونتينرات
-class _StorageElementDetailsScreen extends StatefulWidget {
-  final StorageElement element;
-  const _StorageElementDetailsScreen({required this.element});
-
-  @override
-  State<_StorageElementDetailsScreen> createState() =>
-      _StorageElementDetailsScreenState();
-}
-
-class _StorageElementDetailsScreenState
-    extends State<_StorageElementDetailsScreen> {
-  late Future<List<Continer>> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = SectionApi.fetchContainersOnStorageElement(widget.element.id);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final title = widget.element.code?.isNotEmpty == true
-        ? widget.element.code!
-        : '#${widget.element.id}';
-    return Scaffold(
-      appBar: AppBar(title: Text('الوسيطة: $title')),
-      body: FutureBuilder<List<Continer>>(
-        future: _future,
-        builder: (_, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snap.hasError) {
-            return Center(
-                child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('خطأ في تحميل الحاويات:\n${snap.error}'),
-            ));
-          }
-          final list = snap.data ?? const <Continer>[];
-          if (list.isEmpty) {
-            return const Center(child: Text('لا توجد حاويات على هذه الوسيطة'));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: list.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) {
-              final c = list[i];
-              return Card(
-                elevation: 1,
-                child: ListTile(
-                  leading: const Icon(Icons.all_inbox_outlined),
-                  title:
-                      Text(c.code?.isNotEmpty == true ? c.code! : '#${c.id}'),
-                  subtitle: (c.status == null || c.status!.isEmpty)
-                      ? null
-                      : Text('الحالة: ${c.status}'),
-                ),
-              );
-            },
           );
         },
       ),
@@ -407,15 +243,280 @@ class _StorageElementDetailsScreenState
   }
 }
 
-/// تبويب 4: لوحة التحكم — تم حذف بطاقة “الموظفون”
-class _DcControlPanelTab extends StatelessWidget {
-  const _DcControlPanelTab({super.key});
+// Professional looking card for a section
+class _SectionCard extends StatelessWidget {
+  final WarehouseSection section;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _SectionCard(
+      {required this.section, required this.onEdit, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
-    // يمكنك لاحقًا إضافة بطاقات أخرى هنا
+    final usage = section.usageRate.clamp(0.0, 1.0);
+    final isCancelled = section.status.toLowerCase() == 'deleted';
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.only(bottom: 16),
+      color: isCancelled ? Colors.grey.shade200 : null,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(section.name,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          decoration:
+                              isCancelled ? TextDecoration.lineThrough : null,
+                        )),
+                if (!isCancelled)
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'edit') onEdit();
+                      if (value == 'delete') onDelete();
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'edit',
+                        child: ListTile(
+                            leading: Icon(Icons.edit_outlined),
+                            title: Text('تعديل')),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: ListTile(
+                            leading: Icon(Icons.cancel_outlined,
+                                color: Colors.orange),
+                            title: Text('إلغاء')),
+                      ),
+                    ],
+                  )
+                else
+                  Chip(
+                      label: Text('ملغي'),
+                      backgroundColor: Colors.grey.shade300),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('المنتج المدعوم: ID #${section.supportedTypeId}',
+                style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: usage,
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            const SizedBox(height: 4),
+            Text(
+                'الإشغال: ${(usage * 100).toStringAsFixed(1)}% (${section.occupied.toInt()}/${section.capacity.toInt()})'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Tab 3: Employees (already implemented)
+
+// Tab 4: Control Panel
+class _DcControlPanelTab extends StatelessWidget {
+  const _DcControlPanelTab();
+
+  @override
+  Widget build(BuildContext context) {
     return const Center(
-      child: Text('لا توجد عناصر في لوحة التحكم بعد'),
+      child: Text('لوحة التحكم الخاصة بمركز التوزيع'),
+    );
+  }
+}
+
+// Dialog for adding a section to a Distribution Center
+class _AddSectionToCenterDialog extends ConsumerStatefulWidget {
+  final DistributionCenter center;
+  const _AddSectionToCenterDialog({required this.center});
+
+  @override
+  ConsumerState<_AddSectionToCenterDialog> createState() =>
+      _AddSectionToCenterDialogState();
+}
+
+class _AddSectionToCenterDialogState
+    extends ConsumerState<_AddSectionToCenterDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _floorsCtrl = TextEditingController();
+  final _classesCtrl = TextEditingController();
+  final _positionsCtrl = TextEditingController();
+
+  String? _selectedProductId;
+  bool _submitting = false;
+  late Future<List<Product>> _productsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final apiService = ref.read(apiServiceProvider);
+    _productsFuture = apiService.getProducts().then((list) {
+      return list
+          .map((e) => Product.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _floorsCtrl.dispose();
+    _classesCtrl.dispose();
+    _positionsCtrl.dispose();
+    super.dispose();
+  }
+
+  String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null;
+  String? _intReq(String? v) {
+    if (v == null || v.trim().isEmpty) return 'مطلوب';
+    return int.tryParse(v.trim()) == null ? 'رقم غير صالح' : null;
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedProductId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('الرجاء اختيار المنتج الخاص بالقسم'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    final payload = <String, dynamic>{
+      "existable_type": "DistributionCenter",
+      "existable_id": widget.center.id,
+      "product_id": int.tryParse(_selectedProductId!) ?? _selectedProductId,
+      "num_floors": int.parse(_floorsCtrl.text.trim()),
+      "num_classes": int.parse(_classesCtrl.text.trim()),
+      "num_positions_on_class": int.parse(_positionsCtrl.text.trim()),
+      "name": _nameCtrl.text.trim(),
+    };
+
+    setState(() => _submitting = true);
+    try {
+      final ok = await SectionApi.createSection(payload);
+      if (mounted) {
+        Navigator.pop(context, ok);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('فشل الإرسال: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('إضافة قسم جديد'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FutureBuilder<List<Product>>(
+                future: _productsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const LinearProgressIndicator();
+                  }
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Text('لا توجد منتجات لإضافتها');
+                  }
+                  return DropdownButtonFormField<String>(
+                    value: _selectedProductId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'المنتج المخزَّن في هذا القسم',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: snapshot.data!.map((p) {
+                      return DropdownMenuItem<String>(
+                        value: p.id,
+                        child: Text(p.name),
+                      );
+                    }).toList(),
+                    onChanged: (v) => setState(() => _selectedProductId = v),
+                    validator: (v) => v == null ? 'مطلوب' : null,
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'اسم القسم', border: OutlineInputBorder()),
+                  validator: _req),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                      child: TextFormField(
+                          controller: _floorsCtrl,
+                          decoration: const InputDecoration(
+                              labelText: 'عدد الطوابق',
+                              border: OutlineInputBorder()),
+                          keyboardType: TextInputType.number,
+                          validator: _intReq)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: TextFormField(
+                          controller: _classesCtrl,
+                          decoration: const InputDecoration(
+                              labelText: 'عدد الصفوف',
+                              border: OutlineInputBorder()),
+                          keyboardType: TextInputType.number,
+                          validator: _intReq)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                  controller: _positionsCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'عدد المواقع في الصف',
+                      border: OutlineInputBorder()),
+                  keyboardType: TextInputType.number,
+                  validator: _intReq),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context),
+          child: const Text('إلغاء'),
+        ),
+        ElevatedButton.icon(
+          onPressed: _submitting ? null : _submit,
+          icon: _submitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.save),
+          label: Text(_submitting ? 'جارٍ الحفظ...' : 'إضافة'),
+        ),
+      ],
     );
   }
 }

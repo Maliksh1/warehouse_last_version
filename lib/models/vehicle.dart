@@ -1,53 +1,66 @@
-enum VehicleStatus { available, inTransit, underMaintenance } // Added Enum
+// lib/models/vehicle.dart
+
+// **[NEW]** Defining the missing enum
+enum VehicleStatus {
+  available,
+  inUse,
+  maintenance,
+  unknown,
+}
 
 class Vehicle {
-  final String id; // Added unique ID
-  final String licensePlate; // Added license plate
-  final String model; // Added model (e.g., "Truck", "Van", "Forklift")
-  final double
-      capacity; // Added capacity (e.g., weight in kg or volume in cubic meters)
-  final String
-      capacityUnit; // Added unit for capacity (e.g., "kg", "m³", "pallets")
-  final String?
-      assignedDistributionCenterId; // Link to Distribution Center (optional)
-  final VehicleStatus status; // Use Enum for status
-  final String? currentLocation; // Optional: current location string or ID
+  final int id;
+  final String name;
+  final String? expiration;
+  final String? productedIn;
+  final double readiness;
+  final String sizeOfVehicle;
+  final int capacity;
+  final int productId;
+  final String? imageUrl;
+  final VehicleStatus status; // **[NEW]** Added status property
 
   Vehicle({
     required this.id,
-    required this.licensePlate,
-    required this.model,
+    required this.name,
+    this.expiration,
+    this.productedIn,
+    required this.readiness,
+    required this.sizeOfVehicle,
     required this.capacity,
-    required this.capacityUnit,
-    this.assignedDistributionCenterId,
-    this.status = VehicleStatus.available, // Default status
-    this.currentLocation,
+    required this.productId,
+    this.imageUrl,
+    this.status = VehicleStatus.unknown, // **[NEW]** Default value
   });
 
   factory Vehicle.fromJson(Map<String, dynamic> json) {
-    return Vehicle(
-      id: json['id'],
-      licensePlate: json['licensePlate'],
-      model: json['model'],
-      capacity: json['capacity'].toDouble(),
-      capacityUnit: json['capacityUnit'],
-      assignedDistributionCenterId: json['assignedDistributionCenterId'],
-      status: VehicleStatus.values.firstWhere((e) =>
-          e.toString() == 'VehicleStatus.${json['status']}'), // Parse Enum
-      currentLocation: json['currentLocation'],
-    );
-  }
+    // Helper to parse status string to enum
+    VehicleStatus parseStatus(String? statusStr) {
+      switch (statusStr?.toLowerCase()) {
+        case 'available':
+          return VehicleStatus.available;
+        case 'in_use':
+        case 'in use':
+          return VehicleStatus.inUse;
+        case 'maintenance':
+          return VehicleStatus.maintenance;
+        default:
+          return VehicleStatus.unknown;
+      }
+    }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'licensePlate': licensePlate,
-      'model': model,
-      'capacity': capacity,
-      'capacityUnit': capacityUnit,
-      'assignedDistributionCenterId': assignedDistributionCenterId,
-      'status': status.toString().split('.').last, // Convert Enum to String
-      'currentLocation': currentLocation,
-    };
+    return Vehicle(
+      id: (json['id'] as num).toInt(),
+      name: json['name'] as String,
+      expiration: json['expiration'] as String?,
+      productedIn: json['producted_in'] as String?,
+      readiness: (json['readiness'] as num).toDouble(),
+      sizeOfVehicle: json['size_of_vehicle'] as String,
+      capacity: (json['capacity'] as num).toInt(),
+      productId: (json['product_id'] as num).toInt(),
+      imageUrl: json['image'] as String?,
+      status:
+          parseStatus(json['status'] as String?), // **[NEW]** Parsing status
+    );
   }
 }

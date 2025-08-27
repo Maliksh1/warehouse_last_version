@@ -37,6 +37,38 @@ class EmployeesApi {
     return null;
   }
 
+  /// **[NEW]** GET /show_all_employees
+  /// Fetches all employees from all specializations and flattens the list.
+  static Future<List<Employee>> fetchAllEmployees() async {
+    final url = Uri.parse('$_base/show_all_employees');
+    final res = await http.get(url, headers: await _headers());
+
+    if (kDebugMode) {
+      debugPrint('[GET] $url -> ${res.statusCode}');
+    }
+
+    if (res.statusCode == 202) {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final specializations = (data['employees'] as List?) ?? [];
+      final List<Employee> allEmployees = [];
+
+      // Loop through each specialization and extract its employees
+      for (var spec in specializations) {
+        if (spec is Map && spec['employees'] is List) {
+          for (var empJson in spec['employees']) {
+            allEmployees.add(
+                Employee.fromJson(Map<String, dynamic>.from(empJson as Map)));
+          }
+        }
+      }
+      return allEmployees;
+    }
+
+    lastErrorMessage =
+        _msg(res.body) ?? 'Failed to fetch all employees (${res.statusCode})';
+    throw Exception(lastErrorMessage);
+  }
+
   /// GET /show_employees_on_place/{placeType}/{placeId}
   static Future<List<Employee>> fetchOnPlace({
     required String placeType,
@@ -110,6 +142,28 @@ class EmployeesApi {
 
     if (res.statusCode == 201) return true;
     lastErrorMessage = _msg(res.body) ?? 'فشل إضافة الموظف (${res.statusCode})';
+    return false;
+  }
+
+  /// تعديل موظف: POST /edit_employe
+  /// **[NEW]** POST /edit_employe
+  static Future<bool> edit({required Map<String, dynamic> payload}) async {
+    final url = Uri.parse('$_base/edit_employe');
+    final res = await http.post(
+      url,
+      headers: await _headers(withJson: true),
+      body: jsonEncode(payload),
+    );
+
+    if (kDebugMode) {
+      debugPrint('[POST] $url -> ${res.statusCode}');
+      debugPrint('Payload: ${jsonEncode(payload)}');
+      debugPrint('Body: ${res.body}');
+    }
+
+    if (res.statusCode == 202) return true; // 202 = editing succesfully!
+
+    lastErrorMessage = _msg(res.body) ?? 'فشل تعديل الموظف (${res.statusCode})';
     return false;
   }
 

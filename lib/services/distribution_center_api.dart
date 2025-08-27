@@ -19,6 +19,38 @@ class DistributionCenterApi {
     };
   }
 
+  /// **[NEW]** Fetches all distribution centers in the system.
+  /// Assumes an endpoint like '/api/show_all_distribution_centers' exists.
+  static Future<List<DistributionCenter>> fetchAllDistributionCenters() async {
+    final h = await _headers();
+    // Note: Adjust the endpoint if it's different in your backend.
+    final url = Uri.parse(
+        '$_base/show_all_distribution_centers'); // Corrected endpoint name based on backend patterns
+
+    final res = await http.get(url, headers: h);
+    if (kDebugMode) {
+      debugPrint('[GET] $url -> ${res.statusCode}');
+    }
+
+    if (res.statusCode ~/ 100 != 2) {
+      lastErrorMessage = 'فشل جلب مراكز التوزيع (${res.statusCode})';
+      throw Exception(lastErrorMessage);
+    }
+
+    final data = jsonDecode(res.body);
+    // Adjust the key based on your actual API response
+    final raw = (data['distribuction_centers'] ??
+        data['distribution_centers'] ??
+        data['data'] ??
+        []) as List;
+
+    return raw
+        .map((e) => DistributionCenter.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ))
+        .toList();
+  }
+
   /// GET /show_distrebution_centers_of_warehouse/{wid}
   static Future<List<DistributionCenter>> fetchByWarehouse(int wid) async {
     final h = await _headers();
@@ -26,8 +58,7 @@ class DistributionCenterApi {
 
     final res = await http.get(url, headers: h);
     if (kDebugMode) {
-      debugPrint('[GET] $url -> ${res.statusCode}');
-      debugPrint(res.body);
+      debugPrint('[GET] $url -> ${res.body}');
     }
 
     if (res.statusCode ~/ 100 != 2) {
@@ -36,11 +67,8 @@ class DistributionCenterApi {
     }
 
     final data = jsonDecode(res.body);
-    // ✅ الحقل الفعلي من الباك:
-    final raw = (data['distribuction_centers'] // الاسم المرسل من الباك
-        ??
-        data['distribution_centers'] // احتياط لأسماء أخرى
-        ??
+    final raw = (data['distribuction_centers'] ??
+        data['distribution_centers'] ??
         data['centers'] ??
         data['data'] ??
         []) as List;
@@ -127,17 +155,15 @@ class DistributionCenterApi {
     final h = await _headers();
     final url = Uri.parse('$_base/delete_distribution_center/$id');
 
-    final res = await http.get(url, headers: h); // ✅ GET بدلاً من DELETE
+    final res = await http.get(url, headers: h);
 
     if (kDebugMode) {
       debugPrint('[GET] $url -> ${res.statusCode}');
       debugPrint(res.body);
     }
 
-    // اعتبر أي 2xx نجاحًا (بما فيها 202 من الباك)
     if (res.statusCode ~/ 100 == 2) return true;
 
-    // حفظ رسالة سبب الفشل (إن وُجدت)
     try {
       final d = jsonDecode(res.body);
       if (d is Map) {
