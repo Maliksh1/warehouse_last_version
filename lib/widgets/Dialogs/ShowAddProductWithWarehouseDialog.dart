@@ -113,7 +113,7 @@ void showAddProductWithWarehouseDialog(BuildContext context, WidgetRef ref) {
                 name: nameController.text,
                 importCycle: 'monthly', // Default import cycle
                 quantity: 0, // Start with 0 quantity
-                typeId: categoryIdController.text,
+                typeId: int.parse(categoryIdController.text),
                 unit: 'piece', // Default unit
                 actualPiecePrice:
                     double.tryParse(purchasePriceController.text) ?? 0.0,

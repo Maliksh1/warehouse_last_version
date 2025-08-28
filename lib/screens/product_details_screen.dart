@@ -34,12 +34,12 @@ class ProductDetailsScreen extends ConsumerWidget {
       data: (list) => list
           .firstWhere((s) => s.id == product.supplierId,
               orElse: () => Supplier(
-                   id: 0,
-                   name: 'غير معروف',
-                   country: '',
-                   identifier: '',
-                   communicationWay: '',
-                 ))
+                    id: 0,
+                    name: 'غير معروف',
+                    country: '',
+                    identifier: '',
+                    communicationWay: '',
+                  ))
           .name,
       loading: () => '...',
       error: (_, __) => 'خطأ',
@@ -71,9 +71,9 @@ class ProductDetailsScreen extends ConsumerWidget {
                 _infoRow(t.get('description'), product.description ?? '—'),
                 _infoRow(t.get('type_id'), typeName),
                 _infoRow(t.get('quantity'), product.quantity.toString()),
-                _infoRow(t.get('unit'), product.unit),
+                _infoRow(t.get('unit'), product.unit.toString()),
                 _infoRow(t.get('price'),
-                    "${product.actualPiecePrice.toStringAsFixed(2)} \$"),
+                    "${product.actualPiecePrice?.toStringAsFixed(2)} \$"),
                 _infoRow(t.get('import_cycle'), product.importCycle ?? '—'),
                 _infoRow(t.get('supplier'), supplierName),
               ],

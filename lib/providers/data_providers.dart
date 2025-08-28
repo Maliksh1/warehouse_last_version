@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/models/pending_import_operation.dart';
+import 'package:warehouse/models/pending_product_import.dart';
 import 'package:warehouse/models/storage_media.dart';
+import 'package:warehouse/models/unified_pending_operation.dart';
 import 'package:warehouse/models/warehouse_section.dart';
 import 'package:warehouse/services/distribution_center_api.dart';
 import 'package:warehouse/services/garage_api.dart';
@@ -187,10 +189,10 @@ final productsListProvider =
         name: 'Invalid Product',
         importCycle: '',
         quantity: 0,
-        typeId: '',
         unit: '',
         actualPiecePrice: 0.0,
         supplierId: '',
+        typeId: null,
       );
     }
   }).toList();
@@ -398,28 +400,146 @@ final supplierStorageMediaProvider = FutureProvider.autoDispose
   return SuppliersApi.fetchStorageMediaForSupplier(supplierId);
 });
 final sectionsForPlaceProvider = FutureProvider.autoDispose
-    .family<List<WarehouseSection>, Map<String, dynamic>>((ref, params) {
+    .family<List<WarehouseSection>, (int, String, int)>((ref, params) {
   // ✅ ---  هنا التعديل ---
   // أخبر الـ Provider أن يحتفظ بالحالة ولا يعيد الطلب عند كل rebuild
   ref.keepAlive();
 
-  final int storageMediaId = params['storageMediaId'];
-  final String placeType = params['placeType'];
-  final int placeId = params['placeId'];
-  return ImportApi.fetchSectionsForPlace(storageMediaId, placeType, placeId);
+  final (mediaId, placeType, placeId) = params;
+  return ImportApi.fetchSectionsForPlace(mediaId, placeType, placeId);
 });
 
 /// Provider لجلب مراكز التوزيع لمستودع معين
 final distributionCentersForWarehouseProvider = FutureProvider.autoDispose
-    .family<List<DistributionCenter>, Map<String, int>>((ref, params) {
+    .family<List<DistributionCenter>, (int warehouseId, int mediaId)>(
+        (ref, params) {
   // ✅ ---  وهنا أيضًا ---
   ref.keepAlive();
 
-  final int warehouseId = params['warehouseId']!;
-  final int storageMediaId = params['storageMediaId']!;
-  return ImportApi.fetchDistributionCentersForWarehouse(
-      warehouseId, storageMediaId);
+  final (warehouseId, mediaId) = params;
+  return ImportApi.fetchDistributionCentersForWarehouse(warehouseId, mediaId);
 });
+
+// Provider لإدارة حالة عملية الاستيراد التي يتم بناؤها
+final productImportWizardProvider = StateNotifierProvider.autoDispose<
+    ProductImportNotifier,
+    List<ImportedProductInfo>>((ref) => ProductImportNotifier());
+
+// Provider لجلب قائمة المنتجات لمورد معين
+final productsForSupplierProvider =
+    FutureProvider.autoDispose.family<List<Product>, int>((ref, supplierId) {
+  return SuppliersApi.fetchProductsForSupplier(supplierId);
+});
+
+// Provider لجلب المستودعات المتوافقة مع منتج معين
+final warehousesForProductProvider =
+    FutureProvider.autoDispose.family<List<Warehouse>, int>((ref, productId) {
+  return ImportApi.fetchWarehousesForProduct(productId);
+});
+
+// ✅ --- State Notifier لإدارة الحالة المعقدة للمعالج ---
+class ProductImportNotifier extends StateNotifier<List<ImportedProductInfo>> {
+  ProductImportNotifier() : super([]);
+
+  // إضافة منتج جديد إلى القائمة
+  void addProduct(Product product, List<Warehouse> compatibleWarehouses) {
+    state = [
+      ...state,
+      ImportedProductInfo(
+        product: product,
+        // إنشاء قائمة توزيع فارغة لكل مستودع متوافق
+        distribution: compatibleWarehouses
+            .map((wh) => ProductDistributionInfo(warehouse: wh))
+            .toList(),
+      )
+    ];
+  }
+
+  // إزالة منتج من القائمة
+  void removeProduct(int productId) {
+    state = state.where((p) => p.product.id != productId).toList();
+  }
+
+  // تحديث بيانات منتج معين
+  void updateProduct(ImportedProductInfo updatedProduct) {
+    state = [
+      for (final p in state)
+        if (p.product.id == updatedProduct.product.id) updatedProduct else p,
+    ];
+  }
+}
+
+final pendingProductImportsProvider =
+    FutureProvider.autoDispose<List<PendingProductImport>>((ref) {
+  return ImportApi.fetchPendingProductImports();
+});
+
+// ✅ --- StateNotifier جديد لإدارة قائمة العمليات المدمجة ---
+class AllPendingOperationsNotifier
+    extends StateNotifier<AsyncValue<List<UnifiedPendingOperation>>> {
+  final Ref _ref;
+
+  AllPendingOperationsNotifier(this._ref) : super(const AsyncValue.loading()) {
+    fetchOperations();
+  }
+
+  Future<void> fetchOperations() async {
+    state = const AsyncValue.loading();
+    try {
+      // استدعاء كلا الـ Providers بالتوازي
+      final storageMediaFuture = _ref.watch(
+          pendingImportsProvider.future as AlwaysAliveProviderListenable);
+      final productFuture = _ref.watch(pendingProductImportsProvider.future
+          as AlwaysAliveProviderListenable);
+
+      final results = await Future.wait(
+          [storageMediaFuture, productFuture] as Iterable<Future>);
+
+      final storageMediaOps = results[0];
+      final productOps = results[1];
+
+      // دمج النتائج في قائمة واحدة موحدة
+      final List<UnifiedPendingOperation> combinedList = [];
+      combinedList
+          .addAll(storageMediaOps.map((op) => StorageMediaOperation(op)));
+      combinedList.addAll(productOps.map((op) => ProductOperation(op)));
+
+      state = AsyncValue.data(combinedList);
+    } catch (e, s) {
+      state = AsyncValue.error(e, s);
+    }
+  }
+
+  // ✅ --- دالة لإزالة عملية من القائمة بشكل فوري ---
+  void removeOperation(UnifiedPendingOperation operationToRemove) {
+    state.whenData((operations) {
+      final newList = List<UnifiedPendingOperation>.from(operations);
+
+      String keyToRemove;
+      if (operationToRemove is StorageMediaOperation) {
+        keyToRemove = operationToRemove.operation.importOperationKey;
+        newList.removeWhere((op) =>
+            op is StorageMediaOperation &&
+            op.operation.importOperationKey == keyToRemove);
+      } else if (operationToRemove is ProductOperation) {
+        keyToRemove = operationToRemove.operation.importOperationKey;
+        newList.removeWhere((op) =>
+            op is ProductOperation &&
+            op.operation.importOperationKey == keyToRemove);
+      }
+
+      state = AsyncValue.data(newList);
+    });
+  }
+}
+
+// ✅ --- استبدال الـ Provider القديم بالجديد ---
+final allPendingOperationsProvider = StateNotifierProvider.autoDispose<
+    AllPendingOperationsNotifier, AsyncValue<List<UnifiedPendingOperation>>>(
+  (ref) {
+    return AllPendingOperationsNotifier(ref);
+  },
+);
 
 class WarehouseOccupancyData {
   final String name;

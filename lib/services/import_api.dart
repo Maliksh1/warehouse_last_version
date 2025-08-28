@@ -1,4 +1,3 @@
-// lib/services/import_api.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -6,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:warehouse/models/distribution_center.dart';
 import 'package:warehouse/models/pending_import_operation.dart';
+import 'package:warehouse/models/pending_product_import.dart';
 import 'package:warehouse/models/storage_media.dart';
 import 'package:warehouse/models/supplier.dart';
 import 'package:warehouse/models/warehouse.dart';
@@ -55,21 +55,47 @@ class ImportApi {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final operationsMap =
-            data['import_operations'] as Map<String, dynamic>? ?? {};
-        final operations = operationsMap.values
-            .map((opJson) => PendingImportOperation.fromJson(opJson))
-            .toList();
+
+        // ✅ ---  المنطق الجديد والأكثر قوة ---
+
+        // الحالة 1: الخادم يرسل قائمة (مثل ["no operation"])
+        if (data is List) {
+          _log(methodName, 'Response is a List. Assuming no operations.');
+          return [];
+        }
+
+        // الحالة 2: الخادم يرسل كائنًا (Map)
+        if (data is Map<String, dynamic>) {
+          final operationsData = data['import_operations'];
+
+          if (operationsData == null) {
+            _log(methodName, 'Success: "import_operations" key not found.');
+            return [];
+          }
+
+          if (operationsData is Map) {
+            // التحويل الصريح إلى Map<String, dynamic>
+            final castedOperationsData =
+                Map<String, dynamic>.from(operationsData);
+            final operations = castedOperationsData.values
+                .map((opJson) => PendingImportOperation.fromJson(
+                    opJson as Map<String, dynamic>))
+                .toList();
+            _log(methodName,
+                'Success: Parsed ${operations.length} operations from MAP structure.');
+            return operations;
+          }
+        }
+
         _log(methodName,
-            'Success: Fetched ${operations.length} pending operations.');
-        return operations;
+            'Warning: Response format is unexpected. Returning empty list.');
+        return [];
       }
-      lastErrorMessage = 'Failed to load pending operations.';
+
       return [];
     } catch (e) {
-      lastErrorMessage = 'An exception occurred: $e';
-      _log(methodName, 'Exception: $lastErrorMessage');
-      throw Exception(lastErrorMessage);
+      _log(methodName, 'EXCEPTION: $e');
+      throw Exception('Failed to load pending import operations: $e');
     }
   }
 
@@ -179,7 +205,7 @@ class ImportApi {
     }
   }
 
-  /// Step 3: Fetch warehouses that support a specific storage media.
+  /// Fetch warehouses that support a specific storage media.
   static Future<List<Warehouse>> fetchWarehousesForMedia(
       int storageMediaId) async {
     const methodName = 'fetchWarehousesForMedia';
@@ -191,12 +217,9 @@ class ImportApi {
       _log(methodName,
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
 
-      // --- هنا تم التصحيح ---
       if (res.statusCode == 200 || res.statusCode == 202) {
         final data = jsonDecode(res.body);
-        // 1. قراءة البيانات ككائن (Map)
         final warehousesMap = data['warehouses'] as Map<String, dynamic>? ?? {};
-        // 2. تحويل قيم الكائن إلى قائمة
         final warehouses =
             warehousesMap.values.map((w) => Warehouse.fromJson(w)).toList();
         return warehouses;
@@ -219,7 +242,6 @@ class ImportApi {
       _log(methodName,
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
 
-      // ✅ --- هنا التعديل ---
       if (res.statusCode == 202) {
         final data = jsonDecode(res.body);
         final List list = (data['sections'] as List?) ?? const [];
@@ -234,7 +256,7 @@ class ImportApi {
       if (res.statusCode == 404) {
         _log(methodName,
             'Success: No sections found (404), returning empty list.');
-        return []; // <-- التعامل مع 404 بهدوء
+        return [];
       }
 
       throw Exception('Failed with status code: ${res.statusCode}');
@@ -245,7 +267,7 @@ class ImportApi {
     }
   }
 
-  /// Step 4b: Fetch distribution centers in a warehouse for a specific storage media.
+  /// Fetch distribution centers in a warehouse for a specific storage media.
   static Future<List<DistributionCenter>> fetchDistributionCentersForWarehouse(
       int warehouseId, int storageMediaId) async {
     const methodName = 'fetchDistributionCentersForWarehouse';
@@ -260,16 +282,10 @@ class ImportApi {
 
       if (res.statusCode == 202) {
         final data = jsonDecode(res.body);
-
-        // ✅ ---  هنا التصحيح ---
-        // 1. اقرأ البيانات كـ List بدلاً من Map
         final List centersList =
             (data['distribution_centers'] as List?) ?? const [];
-
-        // 2. قم بتحويل كل عنصر في القائمة مباشرة
         final centers =
             centersList.map((dc) => DistributionCenter.fromJson(dc)).toList();
-
         _log(methodName,
             'Success: Fetched ${centers.length} distribution centers.');
         return centers;
@@ -296,22 +312,23 @@ class ImportApi {
     required List<Map<String, dynamic>> items,
   }) async {
     const methodName = 'createPendingImportOperation';
-    // نفترض أن هذا هو اسم الراوت بناءً على منطق الباك إند
-    final url = Uri.parse('$_baseUrl/create_import_op_storage_media');
+    final url = Uri.parse('$_baseUrl/create_new_imporet_op_storage_media');
 
-    // تجميع الحمولة النهائية
+    // تأكد من أن section_id هو رقم صحيح
+    final correctedItems = items.map((item) {
+      return {
+        "storage_media_id": storageMedia.id,
+        "quantity": item['quantity'],
+        "section_id": int.tryParse(item['section_id'].toString()) ?? 0,
+      };
+    }).toList();
+
     final payload = {
       "supplier_id": supplier.id,
       "location": warehouse.location,
       "latitude": warehouse.latitude,
       "longitude": warehouse.longitude,
-      "storage_media": items
-          .map((item) => {
-                "storage_media_id": storageMedia.id,
-                "quantity": item['quantity'],
-                "section_id": item['section_id'],
-              })
-          .toList(),
+      "storage_media": correctedItems,
     };
 
     _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
@@ -321,17 +338,157 @@ class ImportApi {
       _log(methodName,
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
 
-      // عادةً ما يكون الإنشاء الناجح 201
       if (res.statusCode == 201 || res.statusCode == 200) {
         _log(methodName, 'Success: Pending import operation created.');
         return true;
       }
-      lastErrorMessage =
-          jsonDecode(res.body)['msg'] ?? 'Failed to create pending operation.';
+      // Capture error message more reliably
+      try {
+        lastErrorMessage = jsonDecode(res.body)['message'] ??
+            jsonDecode(res.body)['msg'] ??
+            'Failed to create operation.';
+      } catch (_) {
+        lastErrorMessage = 'An unknown error occurred.';
+      }
       return false;
     } catch (e) {
       lastErrorMessage = 'An exception occurred: $e';
       _log(methodName, 'Exception: $lastErrorMessage');
+      return false;
+    }
+  }
+
+  static Future<List<Warehouse>> fetchWarehousesForProduct(
+      int productId) async {
+    const methodName = 'fetchWarehousesForProduct';
+    final url = Uri.parse('$_baseUrl/show_warehouses_of_product/$productId');
+    _log(methodName, 'Calling API: $url');
+    try {
+      final res = await http.get(url, headers: await _getHeaders());
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        // الخادم يرسل كائنًا وليس قائمة، لذا يجب تحويله
+        final warehousesMap = data['warehouses'] as Map<String, dynamic>? ?? {};
+        return warehousesMap.values.map((e) => Warehouse.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      _log(methodName, 'EXCEPTION: $e');
+      throw Exception('Failed to load warehouses for product');
+    }
+  }
+
+  static Future<bool> createPendingProductImport({
+    required Supplier supplier,
+    required List<ImportedProductInfo> products,
+  }) async {
+    const methodName = 'createPendingProductImport';
+    final url = Uri.parse('$_baseUrl/create_new_import_operation_product');
+
+    final payload = {
+      "supplier_id": supplier.id,
+      "location": supplier.country, // أو أي موقع مناسب
+      "latitude": 20.0, // قيمة افتراضية أو من المورد
+      "longitude": -22.0, // قيمة افتراضية أو من المورد
+      "products": products.map((p) => p.toJson()).toList(),
+    };
+
+    _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
+    try {
+      final res = await http.post(url,
+          headers: await _getHeaders(), body: jsonEncode(payload));
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+
+      if (res.statusCode == 201) {
+        return true;
+      }
+      lastErrorMessage =
+          jsonDecode(res.body)['msg'] ?? 'Failed to create operation.';
+      return false;
+    } catch (e) {
+      lastErrorMessage = 'An exception occurred: $e';
+      _log(methodName, 'EXCEPTION: $e');
+      return false;
+    }
+  }
+
+  static Future<List<PendingProductImport>> fetchPendingProductImports() async {
+    const methodName = 'fetchPendingProductImports';
+    final url = Uri.parse('$_baseUrl/show_latest_import_op_products');
+    _log(methodName, 'Calling API: $url');
+    try {
+      final res = await http.get(url, headers: await _getHeaders());
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data is List) {
+          _log(methodName, 'Response is a List, assuming no operations.');
+          return [];
+        }
+        if (data is Map<String, dynamic>) {
+          final operationsData = data['import_operations'];
+          if (operationsData is Map) {
+            final castedData = Map<String, dynamic>.from(operationsData);
+            return castedData.values
+                .map((opJson) => PendingProductImport.fromJson(
+                    opJson as Map<String, dynamic>))
+                .toList();
+          }
+        }
+      }
+      return [];
+    } catch (e) {
+      _log(methodName, 'EXCEPTION: $e');
+      throw Exception('Failed to load pending product imports: $e');
+    }
+  }
+
+  static Future<bool> acceptProductImport({
+    required String importKey,
+    required String productsKey,
+  }) async {
+    const methodName = 'acceptProductImport';
+    final url = Uri.parse('$_baseUrl/accept_import_op_products');
+    final payload = {
+      "import_operation_key": importKey,
+      "products_key": productsKey,
+    };
+    _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
+    try {
+      final res = await http.post(url,
+          headers: await _getHeaders(), body: jsonEncode(payload));
+      _log(methodName, 'Response Status: ${res.statusCode}');
+      return res.statusCode == 202;
+    } catch (e) {
+      _log(methodName, 'EXCEPTION: $e');
+      return false;
+    }
+  }
+
+  // ملاحظة: الباك إند يستخدم نفس الدالة للرفض
+  static Future<bool> rejectProductImport({
+    required String importKey,
+    required String productsKey,
+  }) async {
+    const methodName = 'rejectProductImport';
+    final url = Uri.parse('$_baseUrl/reject_import_op');
+    final payload = {
+      "import_operation_key": importKey,
+      "key": productsKey, // الباك إند يتوقع "key" هنا
+    };
+    _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
+    try {
+      final res = await http.post(url,
+          headers: await _getHeaders(), body: jsonEncode(payload));
+      _log(methodName, 'Response Status: ${res.statusCode}');
+      return res.statusCode == 202;
+    } catch (e) {
+      _log(methodName, 'EXCEPTION: $e');
       return false;
     }
   }

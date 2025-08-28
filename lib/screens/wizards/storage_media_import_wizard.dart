@@ -23,7 +23,9 @@ class _StorageMediaImportWizardState
   final PageController _pageController = PageController();
   int _currentPage = 0;
   bool _isSubmitting = false;
+
   final Map<String, dynamic> _importHeaderData = {};
+  final List<Map<String, dynamic>> _importItems = [];
 
   void _nextPage() {
     if (_currentPage < 3) {
@@ -43,13 +45,12 @@ class _StorageMediaImportWizardState
 
   Future<void> _submitData() async {
     setState(() => _isSubmitting = true);
-    final items = ref.read(importItemsProvider);
 
     final success = await ImportApi.createPendingImportOperation(
       supplier: _importHeaderData['supplier'] as Supplier,
       warehouse: _importHeaderData['warehouse'] as Warehouse,
       storageMedia: _importHeaderData['storage_media'] as StorageMedia,
-      items: items,
+      items: _importItems,
     );
 
     if (mounted) {
@@ -61,11 +62,13 @@ class _StorageMediaImportWizardState
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
+
       if (success) {
-        ref.invalidate(pendingImportsProvider);
+        ref.refresh(pendingImportsProvider);
         Navigator.of(context).pop();
       }
     }
+
     if (mounted) {
       setState(() => _isSubmitting = false);
     }
@@ -97,10 +100,17 @@ class _StorageMediaImportWizardState
         },
       ),
       Step4AddItems(
+        // <-- The corrected Step 4 is used here
         storageMediaId:
             (_importHeaderData['storage_media'] as StorageMedia?)?.id,
         warehouse: _importHeaderData['warehouse'] as Warehouse?,
-        onComplete: _submitData,
+        onComplete: (items) {
+          setState(() {
+            _importItems.clear();
+            _importItems.addAll(items);
+          });
+          _submitData();
+        },
       ),
     ];
 
@@ -145,16 +155,22 @@ class Step1SelectMedia extends ConsumerWidget {
     return mediaAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error: $err')),
-      data: (mediaList) => ListView.builder(
-        itemCount: mediaList.length,
-        itemBuilder: (context, index) {
-          final media = mediaList[index];
-          return ListTile(
-            title: Text(media.name),
-            onTap: () => onSelected(media),
-          );
-        },
-      ),
+      data: (mediaList) {
+        if (mediaList.isEmpty) {
+          return const Center(child: Text('No storage media found.'));
+        }
+        return ListView.builder(
+          itemCount: mediaList.length,
+          itemBuilder: (context, index) {
+            final media = mediaList[index];
+            return ListTile(
+              title: Text(media.name),
+              leading: const Icon(Icons.widgets_outlined),
+              onTap: () => onSelected(media),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -166,22 +182,32 @@ class Step2SelectSupplier extends ConsumerWidget {
       {required this.storageMediaId, required this.onSelected, super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (storageMediaId == null) return const Center(child: Text("..."));
+    if (storageMediaId == null) {
+      return const Center(
+          child: Text("Please go back and select a storage media first."));
+    }
     final suppliersAsync =
         ref.watch(suppliersForMediaProvider(storageMediaId!));
     return suppliersAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error: $err')),
-      data: (suppliers) => ListView.builder(
-        itemCount: suppliers.length,
-        itemBuilder: (context, index) {
-          final supplier = suppliers[index];
-          return ListTile(
-            title: Text(supplier.name),
-            onTap: () => onSelected(supplier),
-          );
-        },
-      ),
+      data: (suppliers) {
+        if (suppliers.isEmpty) {
+          return const Center(child: Text('No suppliers found for this item.'));
+        }
+        return ListView.builder(
+          itemCount: suppliers.length,
+          itemBuilder: (context, index) {
+            final supplier = suppliers[index];
+            return ListTile(
+              title: Text(supplier.name),
+              subtitle: Text(supplier.country),
+              leading: const Icon(Icons.person_outline),
+              onTap: () => onSelected(supplier),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -193,31 +219,42 @@ class Step3SelectWarehouse extends ConsumerWidget {
       {required this.storageMediaId, required this.onSelected, super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (storageMediaId == null) return const Center(child: Text("..."));
+    if (storageMediaId == null) {
+      return const Center(
+          child: Text("Please go back and select a storage media first."));
+    }
     final warehousesAsync =
         ref.watch(warehousesForMediaProvider(storageMediaId!));
     return warehousesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error: $err')),
-      data: (warehouses) => ListView.builder(
-        itemCount: warehouses.length,
-        itemBuilder: (context, index) {
-          final warehouse = warehouses[index];
-          return ListTile(
-            title: Text(warehouse.name),
-            onTap: () => onSelected(warehouse),
-          );
-        },
-      ),
+      data: (warehouses) {
+        if (warehouses.isEmpty) {
+          return const Center(
+              child: Text('No compatible warehouses found for this item.'));
+        }
+        return ListView.builder(
+          itemCount: warehouses.length,
+          itemBuilder: (context, index) {
+            final warehouse = warehouses[index];
+            return ListTile(
+              title: Text(warehouse.name),
+              subtitle: Text(warehouse.location ?? 'No location specified'),
+              leading: const Icon(Icons.warehouse_outlined),
+              onTap: () => onSelected(warehouse),
+            );
+          },
+        );
+      },
     );
   }
 }
 
-// --- ✅ STEP 4: REWRITTEN TO BE STATELESS AND RELY ON PROVIDERS ---
-class Step4AddItems extends ConsumerWidget {
+// --- ✅ STEP 4: REWRITTEN AND CORRECTED ---
+class Step4AddItems extends ConsumerStatefulWidget {
   final int? storageMediaId;
   final Warehouse? warehouse;
-  final VoidCallback onComplete;
+  final Function(List<Map<String, dynamic>>) onComplete;
 
   const Step4AddItems({
     required this.storageMediaId,
@@ -226,9 +263,14 @@ class Step4AddItems extends ConsumerWidget {
     super.key,
   });
 
-  void _showQuantityDialog(
-      BuildContext context, WidgetRef ref, WarehouseSection section,
-      {String? parentName}) {
+  @override
+  ConsumerState<Step4AddItems> createState() => _Step4AddItemsState();
+}
+
+class _Step4AddItemsState extends ConsumerState<Step4AddItems> {
+  final List<Map<String, dynamic>> _addedItems = [];
+
+  void _showQuantityDialog(WarehouseSection section, {String? parentName}) {
     final quantityController = TextEditingController();
     showDialog(
       context: context,
@@ -248,17 +290,14 @@ class Step4AddItems extends ConsumerWidget {
             onPressed: () {
               final quantity = int.tryParse(quantityController.text);
               if (quantity != null && quantity > 0) {
-                final notifier = ref.read(importItemsProvider.notifier);
-                notifier.update((state) {
-                  final newState = List<Map<String, dynamic>>.from(state)
-                    ..removeWhere(
-                        (item) => item['section_id'].toString() == section.id);
-                  newState.add({
+                setState(() {
+                  _addedItems
+                      .removeWhere((item) => item['section_id'] == section.id);
+                  _addedItems.add({
                     'section_id': section.id,
                     'section_name': section.name,
                     'quantity': quantity,
                   });
-                  return newState;
                 });
                 Navigator.of(ctx).pop();
               }
@@ -271,13 +310,11 @@ class Step4AddItems extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (storageMediaId == null || warehouse == null) {
+  Widget build(BuildContext context) {
+    if (widget.storageMediaId == null || widget.warehouse == null) {
       return const Center(
           child: Text("Please select media and warehouse first."));
     }
-
-    final addedItems = ref.watch(importItemsProvider);
 
     return Scaffold(
       body: Column(
@@ -287,34 +324,33 @@ class Step4AddItems extends ConsumerWidget {
               children: [
                 const _ListHeader(title: "Direct Warehouse Sections"),
                 _WarehouseSectionsView(
-                  storageMediaId: storageMediaId!,
-                  warehouse: warehouse!,
-                  onSectionTap: (section) => _showQuantityDialog(
-                      context, ref, section,
-                      parentName: "${warehouse!.name} / "),
+                  storageMediaId: widget.storageMediaId!,
+                  warehouse: widget.warehouse!,
+                  addedItems: _addedItems,
+                  onSectionTap: (section) => _showQuantityDialog(section,
+                      parentName: "${widget.warehouse!.name} / "),
                 ),
                 const Divider(height: 24),
                 const _ListHeader(title: "Distribution Centers"),
                 _DistributionCentersView(
-                  storageMediaId: storageMediaId!,
-                  warehouse: warehouse!,
-                  onSectionTap: (section, {parentName}) => _showQuantityDialog(
-                      context, ref, section,
-                      parentName: parentName),
+                  storageMediaId: widget.storageMediaId!,
+                  warehouse: widget.warehouse!,
+                  addedItems: _addedItems,
+                  onSectionTap: _showQuantityDialog,
                 ),
               ],
             ),
           ),
-          if (addedItems.isNotEmpty)
+          if (_addedItems.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.check),
-                label: Text('Confirm and Finish (${addedItems.length} items)'),
+                label: Text('Confirm and Finish (${_addedItems.length} items)'),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                 ),
-                onPressed: onComplete,
+                onPressed: () => widget.onComplete(_addedItems),
               ),
             )
         ],
@@ -323,11 +359,12 @@ class Step4AddItems extends ConsumerWidget {
   }
 }
 
-// --- HELPER WIDGETS TO ISOLATE DATA FETCHING ---
+// --- ✅ HELPER WIDGETS TO FIX REBUILD LOOPS ---
 
 class _ListHeader extends StatelessWidget {
   final String title;
   const _ListHeader({required this.title});
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -340,18 +377,20 @@ class _ListHeader extends StatelessWidget {
 class _WarehouseSectionsView extends ConsumerWidget {
   final int storageMediaId;
   final Warehouse warehouse;
+  final List<Map<String, dynamic>> addedItems;
   final Function(WarehouseSection) onSectionTap;
 
   const _WarehouseSectionsView({
     required this.storageMediaId,
     required this.warehouse,
+    required this.addedItems,
     required this.onSectionTap,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sectionsAsync = ref.watch(sectionsForPlaceProvider(
-        (storageMediaId, 'Warehouse', warehouse.id) as Map<String, dynamic>));
+    final sectionsAsync = ref.watch(
+        sectionsForPlaceProvider((storageMediaId, 'Warehouse', warehouse.id)));
 
     return sectionsAsync.when(
       loading: () =>
@@ -365,6 +404,7 @@ class _WarehouseSectionsView extends ConsumerWidget {
           children: sections
               .map((s) => _SectionTile(
                     section: s,
+                    addedItems: addedItems,
                     onTap: () => onSectionTap(s),
                   ))
               .toList(),
@@ -377,18 +417,20 @@ class _WarehouseSectionsView extends ConsumerWidget {
 class _DistributionCentersView extends ConsumerWidget {
   final int storageMediaId;
   final Warehouse warehouse;
+  final List<Map<String, dynamic>> addedItems;
   final Function(WarehouseSection, {String? parentName}) onSectionTap;
 
   const _DistributionCentersView({
     required this.storageMediaId,
     required this.warehouse,
+    required this.addedItems,
     required this.onSectionTap,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final centersAsync = ref.watch(distributionCentersForWarehouseProvider(
-        (warehouse.id, storageMediaId) as Map<String, int>));
+        (warehouse.id, storageMediaId)));
 
     return centersAsync.when(
       loading: () => const ListTile(title: Text("...Loading Centers")),
@@ -407,6 +449,7 @@ class _DistributionCentersView extends ConsumerWidget {
                 _DistributionCenterSectionsView(
                   storageMediaId: storageMediaId,
                   center: center,
+                  addedItems: addedItems,
                   onSectionTap: (section) =>
                       onSectionTap(section, parentName: "${center.name} / "),
                 )
@@ -422,21 +465,20 @@ class _DistributionCentersView extends ConsumerWidget {
 class _DistributionCenterSectionsView extends ConsumerWidget {
   final int storageMediaId;
   final DistributionCenter center;
+  final List<Map<String, dynamic>> addedItems;
   final Function(WarehouseSection) onSectionTap;
 
   const _DistributionCenterSectionsView({
     required this.storageMediaId,
     required this.center,
+    required this.addedItems,
     required this.onSectionTap,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sectionsAsync = ref.watch(sectionsForPlaceProvider((
-      storageMediaId,
-      'DistributionCenter',
-      center.id
-    ) as Map<String, dynamic>));
+    final sectionsAsync = ref.watch(sectionsForPlaceProvider(
+        (storageMediaId, 'DistributionCenter', center.id)));
     return sectionsAsync.when(
       loading: () => const ListTile(title: Text("...Loading sections")),
       error: (err, stack) => ListTile(title: Text('Error: $err')),
@@ -448,6 +490,7 @@ class _DistributionCenterSectionsView extends ConsumerWidget {
           children: sections
               .map((s) => _SectionTile(
                     section: s,
+                    addedItems: addedItems,
                     onTap: () => onSectionTap(s),
                     isSubItem: true,
                   ))
@@ -458,23 +501,23 @@ class _DistributionCenterSectionsView extends ConsumerWidget {
   }
 }
 
-class _SectionTile extends ConsumerWidget {
+class _SectionTile extends StatelessWidget {
   final WarehouseSection section;
+  final List<Map<String, dynamic>> addedItems;
   final VoidCallback onTap;
   final bool isSubItem;
 
   const _SectionTile({
     required this.section,
+    required this.addedItems,
     required this.onTap,
     this.isSubItem = false,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final addedItems = ref.watch(importItemsProvider);
-
+  Widget build(BuildContext context) {
     final alreadyAddedItem = addedItems.firstWhere(
-      (item) => item['section_id'].toString() == section.id,
+      (item) => item['section_id'] == section.id,
       orElse: () => {},
     );
     final bool isAdded = alreadyAddedItem.isNotEmpty;

@@ -113,31 +113,6 @@ class SuppliersApi {
   }
 
   /// Fetches products for a specific supplier.
-  static Future<List<Product>> fetchProductsForSupplier(int supplierId) async {
-    const methodName = 'fetchProductsForSupplier';
-    final url = Uri.parse('$_baseUrl/show_products_of_supplier/$supplierId');
-    _log(methodName, 'Calling API: $url');
-    try {
-      final res = await http.get(url, headers: await _getHeaders());
-      _log(methodName,
-          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
-      if (res.statusCode == 202) {
-        final data = jsonDecode(res.body);
-        final products = (data['supplier_products'] as List)
-            .map((p) => Product.fromJson(p))
-            .toList();
-        _log(methodName, 'Success: Fetched ${products.length} products.');
-        return products;
-      }
-      lastErrorMessage =
-          jsonDecode(res.body)['msg'] ?? 'Failed to load products.';
-      return [];
-    } catch (e) {
-      lastErrorMessage = 'An exception occurred: $e';
-      _log(methodName, 'Exception: $lastErrorMessage');
-      throw Exception(lastErrorMessage);
-    }
-  }
 
   static Future<bool> addSupplyToSupplier(Map<String, dynamic> payload) async {
     const methodName = 'addSupplyToSupplier';
@@ -211,6 +186,26 @@ class SuppliersApi {
       lastErrorMessage = 'An exception occurred: $e';
       _log(methodName, 'Exception: $lastErrorMessage');
       throw Exception(lastErrorMessage);
+    }
+  }
+
+  static Future<List<Product>> fetchProductsForSupplier(int supplierId) async {
+    const methodName = 'fetchProductsForSupplier';
+    final url = Uri.parse('$_baseUrl/show_products_of_supplier/$supplierId');
+    _log(methodName, 'Calling API: $url');
+    try {
+      final res = await http.get(url, headers: await _getHeaders());
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+      if (res.statusCode == 202) {
+        final data = jsonDecode(res.body);
+        final List list = (data['supplier_products'] as List?) ?? const [];
+        return list.map((e) => Product.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      _log(methodName, 'EXCEPTION: $e');
+      throw Exception('Failed to load products for supplier');
     }
   }
 }

@@ -1,7 +1,9 @@
-// lib/screens/pending_imports_screen.dart
+// lib/screens/pending_import_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/models/pending_import_operation.dart';
+import 'package:warehouse/models/pending_product_import.dart';
+import 'package:warehouse/models/unified_pending_operation.dart';
 import 'package:warehouse/providers/data_providers.dart';
 import 'package:warehouse/services/import_api.dart';
 
@@ -10,7 +12,7 @@ class PendingImportsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pendingImportsAsync = ref.watch(pendingImportsProvider);
+    final allOperationsAsync = ref.watch(allPendingOperationsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -18,11 +20,14 @@ class PendingImportsScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.refresh(pendingImportsProvider),
+            // ✅ --- تحديث طريقة التحديث ---
+            onPressed: () => ref
+                .read(allPendingOperationsProvider.notifier)
+                .fetchOperations(),
           ),
         ],
       ),
-      body: pendingImportsAsync.when(
+      body: allOperationsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
           child: Padding(
@@ -40,12 +45,20 @@ class PendingImportsScreen extends ConsumerWidget {
             );
           }
           return RefreshIndicator(
-            onRefresh: () async => ref.refresh(pendingImportsProvider),
+            onRefresh: () => ref
+                .read(allPendingOperationsProvider.notifier)
+                .fetchOperations(),
             child: ListView.builder(
               padding: const EdgeInsets.all(8.0),
               itemCount: operations.length,
               itemBuilder: (context, index) {
-                return _PendingImportCard(operation: operations[index]);
+                final operation = operations[index];
+                if (operation is StorageMediaOperation) {
+                  return _StorageMediaImportCard(operation: operation);
+                } else if (operation is ProductOperation) {
+                  return _ProductImportCard(operation: operation);
+                }
+                return const SizedBox.shrink();
               },
             ),
           );
@@ -55,23 +68,25 @@ class PendingImportsScreen extends ConsumerWidget {
   }
 }
 
-// ويدجت احترافي لعرض تفاصيل عملية الاستيراد المعلقة
-class _PendingImportCard extends ConsumerStatefulWidget {
-  final PendingImportOperation operation;
-  const _PendingImportCard({required this.operation});
+// --- CARD FOR STORAGE MEDIA IMPORTS ---
+class _StorageMediaImportCard extends ConsumerStatefulWidget {
+  final StorageMediaOperation operation;
+  const _StorageMediaImportCard({required this.operation});
 
   @override
-  ConsumerState<_PendingImportCard> createState() => _PendingImportCardState();
+  ConsumerState<_StorageMediaImportCard> createState() =>
+      _StorageMediaImportCardState();
 }
 
-class _PendingImportCardState extends ConsumerState<_PendingImportCard> {
+class _StorageMediaImportCardState
+    extends ConsumerState<_StorageMediaImportCard> {
   bool _isLoading = false;
 
   Future<void> _handleAccept() async {
     setState(() => _isLoading = true);
     final success = await ImportApi.acceptImportOperation(
-      importKey: widget.operation.importOperationKey,
-      storageKey: widget.operation.storageMediaKey,
+      importKey: widget.operation.operation.importOperationKey,
+      storageKey: widget.operation.operation.storageMediaKey,
     );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -80,18 +95,21 @@ class _PendingImportCardState extends ConsumerState<_PendingImportCard> {
             : ImportApi.lastErrorMessage ?? 'Failed.'),
         backgroundColor: success ? Colors.green : Colors.red,
       ));
+      // ✅ ---  هنا التعديل ---
       if (success) {
-        ref.refresh(pendingImportsProvider);
+        ref
+            .read(allPendingOperationsProvider.notifier)
+            .removeOperation(widget.operation);
       }
     }
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _handleReject() async {
     setState(() => _isLoading = true);
     final success = await ImportApi.rejectImportOperation(
-      importKey: widget.operation.importOperationKey,
-      storageKey: widget.operation.storageMediaKey,
+      importKey: widget.operation.operation.importOperationKey,
+      storageKey: widget.operation.operation.storageMediaKey,
     );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -100,16 +118,19 @@ class _PendingImportCardState extends ConsumerState<_PendingImportCard> {
             : ImportApi.lastErrorMessage ?? 'Failed.'),
         backgroundColor: success ? Colors.blueGrey : Colors.red,
       ));
+      // ✅ ---  وهنا أيضًا ---
       if (success) {
-        ref.refresh(pendingImportsProvider);
+        ref
+            .read(allPendingOperationsProvider.notifier)
+            .removeOperation(widget.operation);
       }
     }
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final op = widget.operation;
+    final op = widget.operation.operation;
     return Card(
       elevation: 4,
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -119,18 +140,14 @@ class _PendingImportCardState extends ConsumerState<_PendingImportCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // معلومات المورد والموقع
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                child: const Icon(Icons.person_outline),
-              ),
-              title: Text(op.supplier.name,
+              leading: const CircleAvatar(child: Icon(Icons.widgets_outlined)),
+              title: Text('Storage Media Import',
                   style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('Location: ${op.location}'),
+              subtitle: Text('Supplier: ${op.supplier.name}'),
             ),
             const Divider(),
-            // تفاصيل الشحنة (قابلة للتوسيع)
             ExpansionTile(
               title: Text('${op.storageItems.length} items to be stored'),
               children: op.storageItems.map((item) {
@@ -143,31 +160,148 @@ class _PendingImportCardState extends ConsumerState<_PendingImportCard> {
               }).toList(),
             ),
             const Divider(),
-            // أزرار التحكم
             if (_isLoading)
               const Center(
                   child: Padding(
-                padding: EdgeInsets.all(8.0),
-                child: CircularProgressIndicator(),
-              ))
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator()))
             else
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: _handleReject,
-                    child: const Text('Reject',
-                        style: TextStyle(color: Colors.red)),
-                  ),
+                      onPressed: _handleReject,
+                      child: const Text('Reject',
+                          style: TextStyle(color: Colors.red))),
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: _handleAccept,
                     icon: const Icon(Icons.check),
                     label: const Text('Accept'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- WIDGET جديد لعرض عمليات استيراد المنتجات ---
+class _ProductImportCard extends ConsumerStatefulWidget {
+  final ProductOperation operation;
+  const _ProductImportCard({required this.operation});
+
+  @override
+  ConsumerState<_ProductImportCard> createState() => _ProductImportCardState();
+}
+
+class _ProductImportCardState extends ConsumerState<_ProductImportCard> {
+  bool _isLoading = false;
+
+  Future<void> _handleAccept() async {
+    setState(() => _isLoading = true);
+    final success = await ImportApi.acceptProductImport(
+      importKey: widget.operation.operation.importOperationKey,
+      productsKey: widget.operation.operation.productsKey,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success
+            ? 'Operation Accepted!'
+            : ImportApi.lastErrorMessage ?? 'Failed.'),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ));
+      // ✅ ---  هنا التعديل ---
+      if (success) {
+        ref
+            .read(allPendingOperationsProvider.notifier)
+            .removeOperation(widget.operation);
+      }
+    }
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> _handleReject() async {
+    setState(() => _isLoading = true);
+    final success = await ImportApi.rejectProductImport(
+      importKey: widget.operation.operation.importOperationKey,
+      productsKey: widget.operation.operation.productsKey,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success
+            ? 'Operation Rejected!'
+            : ImportApi.lastErrorMessage ?? 'Failed.'),
+        backgroundColor: success ? Colors.blueGrey : Colors.red,
+      ));
+      // ✅ ---  وهنا أيضًا ---
+      if (success) {
+        ref
+            .read(allPendingOperationsProvider.notifier)
+            .removeOperation(widget.operation);
+      }
+    }
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final op = widget.operation.operation;
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading:
+                  const CircleAvatar(child: Icon(Icons.inventory_2_outlined)),
+              title: Text('Product Import',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('Supplier: ${op.supplier.name}'),
+            ),
+            const Divider(),
+            ExpansionTile(
+              title: Text('${op.products.length} products to be imported'),
+              children: op.products.map((item) {
+                return ListTile(
+                  title: Text('Product: ${item.product.name}'),
+                  subtitle: Text('Total Load: ${item.importedLoad}'),
+                  trailing: Text('Price: ${item.pricePerUnit}'),
+                );
+              }).toList(),
+            ),
+            const Divider(),
+            if (_isLoading)
+              const Center(
+                  child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator()))
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                      onPressed: _handleReject,
+                      child: const Text('Reject',
+                          style: TextStyle(color: Colors.red))),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _handleAccept,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Accept'),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white),
                   ),
                 ],
               ),
