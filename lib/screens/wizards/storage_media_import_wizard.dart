@@ -1,14 +1,14 @@
 // lib/screens/wizards/storage_media_import_wizard.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse/models/distribution_center.dart';
 import 'package:warehouse/models/storage_media.dart';
 import 'package:warehouse/models/supplier.dart';
 import 'package:warehouse/models/warehouse.dart';
 import 'package:warehouse/models/warehouse_section.dart';
 import 'package:warehouse/providers/data_providers.dart';
+import 'package:warehouse/services/import_api.dart';
 
-// The main wizard screen, now with all fixes applied
+// The main wizard screen with a fully functional submit process
 class StorageMediaImportWizard extends ConsumerStatefulWidget {
   const StorageMediaImportWizard({super.key});
 
@@ -21,6 +21,7 @@ class _StorageMediaImportWizardState
     extends ConsumerState<StorageMediaImportWizard> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _isSubmitting = false;
 
   final Map<String, dynamic> _importHeaderData = {};
   final List<Map<String, dynamic>> _importItems = [];
@@ -31,8 +32,6 @@ class _StorageMediaImportWizardState
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeIn,
       );
-    } else {
-      _submitData();
     }
   }
 
@@ -43,27 +42,46 @@ class _StorageMediaImportWizardState
     );
   }
 
-  void _submitData() {
-    print("Wizard Completed! Data collected: $_importHeaderData");
-    print("Items: $_importItems");
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text("Process finished. Check console for final data.")),
+  Future<void> _submitData() async {
+    setState(() => _isSubmitting = true);
+
+    final success = await ImportApi.createPendingImportOperation(
+      supplier: _importHeaderData['supplier'] as Supplier,
+      warehouse: _importHeaderData['warehouse'] as Warehouse,
+      storageMedia: _importHeaderData['storage_media'] as StorageMedia,
+      items: _importItems,
     );
-    Navigator.of(context).pop();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success
+              ? "Operation submitted successfully!"
+              : ImportApi.lastErrorMessage ?? "An error occurred."),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+
+      if (success) {
+        ref.refresh(pendingImportsProvider);
+        Navigator.of(context).pop();
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      // Step 1: Select Storage Media
       Step1SelectMedia(
         onSelected: (media) {
           setState(() => _importHeaderData['storage_media'] = media);
           _nextPage();
         },
       ),
-      // Step 2: Select Supplier
       Step2SelectSupplier(
         storageMediaId:
             (_importHeaderData['storage_media'] as StorageMedia?)?.id,
@@ -72,7 +90,6 @@ class _StorageMediaImportWizardState
           _nextPage();
         },
       ),
-      // Step 3: Select Warehouse
       Step3SelectWarehouse(
         storageMediaId:
             (_importHeaderData['storage_media'] as StorageMedia?)?.id,
@@ -81,7 +98,6 @@ class _StorageMediaImportWizardState
           _nextPage();
         },
       ),
-      // Step 4: Add items to sections
       Step4AddItems(
         storageMediaId:
             (_importHeaderData['storage_media'] as StorageMedia?)?.id,
@@ -99,28 +115,39 @@ class _StorageMediaImportWizardState
     return Scaffold(
       appBar: AppBar(
         title: Text('Import Storage Media (Step ${_currentPage + 1})'),
-        leading: _currentPage > 0
+        leading: _currentPage > 0 && !_isSubmitting
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: _previousPage,
               )
             : null,
       ),
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: (page) {
-          setState(() {
-            _currentPage = page;
-          });
-        },
-        children: pages,
-      ),
+      body: _isSubmitting
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text("Submitting Operation..."),
+                ],
+              ),
+            )
+          : PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: (page) {
+                setState(() {
+                  _currentPage = page;
+                });
+              },
+              children: pages,
+            ),
     );
   }
 }
 
-// --- WIDGETS FOR EACH STEP (Corrected names and implementations) ---
+// --- WIDGETS FOR EACH STEP ---
 
 class Step1SelectMedia extends ConsumerWidget {
   final Function(StorageMedia) onSelected;
@@ -133,8 +160,9 @@ class Step1SelectMedia extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error: $err')),
       data: (mediaList) {
-        if (mediaList.isEmpty)
+        if (mediaList.isEmpty) {
           return const Center(child: Text('No storage media found.'));
+        }
         return ListView.builder(
           itemCount: mediaList.length,
           itemBuilder: (context, index) {
@@ -159,17 +187,19 @@ class Step2SelectSupplier extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (storageMediaId == null)
+    if (storageMediaId == null) {
       return const Center(
           child: Text("Please go back and select a storage media first."));
+    }
     final suppliersAsync =
         ref.watch(suppliersForMediaProvider(storageMediaId!));
     return suppliersAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error: $err')),
       data: (suppliers) {
-        if (suppliers.isEmpty)
+        if (suppliers.isEmpty) {
           return const Center(child: Text('No suppliers found for this item.'));
+        }
         return ListView.builder(
           itemCount: suppliers.length,
           itemBuilder: (context, index) {
@@ -195,25 +225,26 @@ class Step3SelectWarehouse extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (storageMediaId == null)
+    if (storageMediaId == null) {
       return const Center(
           child: Text("Please go back and select a storage media first."));
+    }
     final warehousesAsync =
         ref.watch(warehousesForMediaProvider(storageMediaId!));
     return warehousesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error: $err')),
       data: (warehouses) {
-        if (warehouses.isEmpty)
+        if (warehouses.isEmpty) {
           return const Center(
               child: Text('No compatible warehouses found for this item.'));
+        }
         return ListView.builder(
           itemCount: warehouses.length,
           itemBuilder: (context, index) {
             final warehouse = warehouses[index];
             return ListTile(
               title: Text(warehouse.name),
-              // --- هنا تم التصحيح ---
               subtitle: Text(warehouse.location ?? 'No location specified'),
               leading: const Icon(Icons.warehouse_outlined),
               onTap: () => onSelected(warehouse),

@@ -2,9 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/models/product.dart';
+import 'package:warehouse/models/storage_media.dart';
 import 'package:warehouse/models/supplier.dart';
 import 'package:warehouse/providers/data_providers.dart';
 import 'package:warehouse/services/suppliers_api.dart';
+import 'package:warehouse/widgets/Dialogs/add_supply_dialog.dart';
 
 class SupplierDetailsScreen extends ConsumerWidget {
   final Supplier supplier;
@@ -30,7 +32,7 @@ class SupplierDetailsScreen extends ConsumerWidget {
     );
 
     if (confirm == true) {
-      final success = await SuppliersApi.deleteSupplier((supplier.id));
+      final success = await SuppliersApi.deleteSupplier(supplier.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -50,36 +52,45 @@ class SupplierDetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(supplier.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _deleteSupplier(context, ref),
-          ),
-        ],
-      ),
-      body: DefaultTabController(
-        length: 2, // Details and Products
-        child: Column(
-          children: [
-            const TabBar(
-              labelColor: Colors.blue,
-              tabs: [
-                Tab(icon: Icon(Icons.info_outline), text: 'Details'),
-                Tab(icon: Icon(Icons.inventory_2_outlined), text: 'Products'),
-              ],
-            ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildDetailsTab(),
-                  _buildProductsTab(ref),
-                ],
-              ),
+    return DefaultTabController(
+      length: 3, // Details, Products, and Storage Media
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(supplier.name),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _deleteSupplier(context, ref),
             ),
           ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.info_outline), text: 'Details'),
+              Tab(icon: Icon(Icons.inventory_2_outlined), text: 'Products'),
+              Tab(icon: Icon(Icons.widgets_outlined), text: 'Storage Media'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _buildDetailsTab(),
+            _buildProductsTab(ref),
+            _buildStorageMediaTab(ref),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          heroTag: 'addSupplyFAB',
+          onPressed: () async {
+            final success =
+                await showAddSupplyDialog(context, ref, supplier.id);
+            if (success == true) {
+              // Refresh both lists upon success
+              ref.refresh(supplierProductsProvider(supplier.id));
+              ref.refresh(supplierStorageMediaProvider(supplier.id));
+            }
+          },
+          label: const Text('Add Supply'),
+          icon: const Icon(Icons.add),
         ),
       ),
     );
@@ -115,7 +126,7 @@ class SupplierDetailsScreen extends ConsumerWidget {
   }
 
   Widget _buildProductsTab(WidgetRef ref) {
-    final productsAsync = ref.watch(supplierProductsProvider((supplier.id)));
+    final productsAsync = ref.watch(supplierProductsProvider(supplier.id));
     return productsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error: $err')),
@@ -127,13 +138,34 @@ class SupplierDetailsScreen extends ConsumerWidget {
           itemCount: products.length,
           itemBuilder: (context, index) {
             final product = products[index];
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: ListTile(
-                title: Text(product.name),
-                subtitle: Text(
-                    'Available Quantity: ${product.quantity} ${product.unit}'),
-              ),
+            return ListTile(
+              title: Text(product.name),
+              subtitle: Text(
+                  'Available Quantity: ${product.quantity} ${product.unit}'),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- تبويب جديد لعرض وسائط التخزين ---
+  Widget _buildStorageMediaTab(WidgetRef ref) {
+    final mediaAsync = ref.watch(supplierStorageMediaProvider(supplier.id));
+    return mediaAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(child: Text('Error: $err')),
+      data: (mediaList) {
+        if (mediaList.isEmpty) {
+          return const Center(
+              child: Text('This supplier has no storage media.'));
+        }
+        return ListView.builder(
+          itemCount: mediaList.length,
+          itemBuilder: (context, index) {
+            final media = mediaList[index];
+            return ListTile(
+              title: Text(media.name),
             );
           },
         );

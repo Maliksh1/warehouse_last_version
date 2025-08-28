@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/models/supplier.dart';
 import 'package:warehouse/providers/data_providers.dart';
 import 'package:warehouse/screens/supplier_details_screen.dart';
+// --- 1. التأكد من استيراد الحوار الصحيح ---
 import 'package:warehouse/widgets/Dialogs/add_supplier_dialog.dart';
 
 class SuppliersScreen extends ConsumerWidget {
@@ -58,6 +59,7 @@ class SuppliersScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton(
         heroTag: 'addSupplierFAB',
         onPressed: () async {
+          // --- 2. استدعاء الدالة الصحيحة لإنشاء مورد جديد ---
           final success = await showAddSupplierDialog(context, ref);
           if (success == true) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -66,6 +68,7 @@ class SuppliersScreen extends ConsumerWidget {
                 backgroundColor: Colors.green,
               ),
             );
+            // لا حاجة لتحديث القائمة يدويًا، الحوار سيقوم بذلك
           }
         },
         child: const Icon(Icons.add),

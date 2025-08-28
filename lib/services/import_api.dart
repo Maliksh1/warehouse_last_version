@@ -143,7 +143,7 @@ class ImportApi {
       final res = await http.get(url, headers: await _getHeaders());
       _log(methodName,
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
-      if (res.statusCode == 200) {
+      if (res.statusCode == 200 || res.statusCode == 202) {
         final data = jsonDecode(res.body);
         final media = (data['storage_media'] as List)
             .map((m) => StorageMedia.fromJson(m))
@@ -179,6 +179,7 @@ class ImportApi {
     }
   }
 
+  /// Step 3: Fetch warehouses that support a specific storage media.
   static Future<List<Warehouse>> fetchWarehousesForMedia(
       int storageMediaId) async {
     const methodName = 'fetchWarehousesForMedia';
@@ -189,11 +190,15 @@ class ImportApi {
       final res = await http.get(url, headers: await _getHeaders());
       _log(methodName,
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
-      if (res.statusCode == 202) {
+
+      // --- هنا تم التصحيح ---
+      if (res.statusCode == 200 || res.statusCode == 202) {
         final data = jsonDecode(res.body);
-        final warehouses = (data['warehouses'] as List)
-            .map((w) => Warehouse.fromJson(w))
-            .toList();
+        // 1. قراءة البيانات ككائن (Map)
+        final warehousesMap = data['warehouses'] as Map<String, dynamic>? ?? {};
+        // 2. تحويل قيم الكائن إلى قائمة
+        final warehouses =
+            warehousesMap.values.map((w) => Warehouse.fromJson(w)).toList();
         return warehouses;
       }
       return [];
@@ -225,6 +230,7 @@ class ImportApi {
     }
   }
 
+  /// Step 4b: Fetch distribution centers in a warehouse for a specific storage media.
   static Future<List<DistributionCenter>> fetchDistributionCentersForWarehouse(
       int warehouseId, int storageMediaId) async {
     const methodName = 'fetchDistributionCentersForWarehouse';
@@ -237,14 +243,25 @@ class ImportApi {
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
       if (res.statusCode == 202) {
         final data = jsonDecode(res.body);
-        final centers = (data['distribution_centers'] as List)
+
+        // --- هنا تم التصحيح ---
+        // 1. قراءة البيانات ككائن (Map)
+        final centersMap =
+            data['distribution_centers'] as Map<String, dynamic>? ?? {};
+        // 2. تحويل قيم الكائن إلى قائمة
+        final centers = centersMap.values
             .map((dc) => DistributionCenter.fromJson(dc))
             .toList();
+        _log(methodName,
+            'Success: Fetched ${centers.length} distribution centers.');
         return centers;
       }
       return [];
     } catch (e) {
-      throw Exception('Failed to load distribution centers: $e');
+      // --- تمت إضافة طباعة مفصلة للخطأ هنا ---
+      final errorMsg = 'Failed to load distribution centers: $e';
+      _log(methodName, 'EXCEPTION: $errorMsg');
+      throw Exception(errorMsg);
     }
   }
 
@@ -255,8 +272,10 @@ class ImportApi {
     required List<Map<String, dynamic>> items,
   }) async {
     const methodName = 'createPendingImportOperation';
+    // نفترض أن هذا هو اسم الراوت بناءً على منطق الباك إند
     final url = Uri.parse('$_baseUrl/create_import_op_storage_media');
 
+    // تجميع الحمولة النهائية
     final payload = {
       "supplier_id": supplier.id,
       "location": warehouse.location,
@@ -278,6 +297,7 @@ class ImportApi {
       _log(methodName,
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
 
+      // عادةً ما يكون الإنشاء الناجح 201
       if (res.statusCode == 201 || res.statusCode == 200) {
         _log(methodName, 'Success: Pending import operation created.');
         return true;

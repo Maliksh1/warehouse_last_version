@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:warehouse/models/product.dart';
+import 'package:warehouse/models/storage_media.dart';
 import 'package:warehouse/models/supplier.dart';
 
 class SuppliersApi {
@@ -130,6 +131,81 @@ class SuppliersApi {
       }
       lastErrorMessage =
           jsonDecode(res.body)['msg'] ?? 'Failed to load products.';
+      return [];
+    } catch (e) {
+      lastErrorMessage = 'An exception occurred: $e';
+      _log(methodName, 'Exception: $lastErrorMessage');
+      throw Exception(lastErrorMessage);
+    }
+  }
+
+  static Future<bool> addSupplyToSupplier(Map<String, dynamic> payload) async {
+    const methodName = 'addSupplyToSupplier';
+    final url = Uri.parse('$_baseUrl/add_new_supplies_to_supplier');
+    _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
+    try {
+      final res = await http.post(url,
+          headers: await _getHeaders(), body: jsonEncode(payload));
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+      if (res.statusCode == 201) {
+        _log(methodName, 'Success: Supply added to supplier.');
+        return true;
+      }
+      lastErrorMessage = jsonDecode(res.body)['msg'] ?? 'Failed to add supply.';
+      return false;
+    } catch (e) {
+      lastErrorMessage = 'An exception occurred: $e';
+      _log(methodName, 'Exception: $lastErrorMessage');
+      return false;
+    }
+  }
+
+  // --- دالة جديدة لجلب وسائط التخزين الخاصة بمورد معين ---
+  // ملاحظة: ستحتاج إلى إضافة هذا الراوت في الباك إند
+  static Future<List<StorageMedia>> fetchStorageMediaForSupplier(
+      int supplierId) async {
+    const methodName = 'fetchStorageMediaForSupplier';
+    // نفترض أن هذا هو اسم الراوت، قد تحتاج لتعديله
+    final url =
+        Uri.parse('$_baseUrl/show_storage_media_of_supplier/$supplierId');
+    _log(methodName, 'Calling API: $url');
+    try {
+      final res = await http.get(url, headers: await _getHeaders());
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+      if (res.statusCode == 202) {
+        final data = jsonDecode(res.body);
+        // تأكد من أن اسم المفتاح صحيح
+        final media = (data['supplier_storage_media'] as List)
+            .map((m) => StorageMedia.fromJson(m))
+            .toList();
+        return media;
+      }
+      return [];
+    } catch (e) {
+      throw Exception('Failed to load storage media for supplier: $e');
+    }
+  }
+
+  static Future<List<Product>> fetchAllProducts() async {
+    const methodName = 'fetchAllProducts';
+    final url = Uri.parse('$_baseUrl/show_all_products');
+    _log(methodName, 'Calling API: $url');
+    try {
+      final res = await http.get(url, headers: await _getHeaders());
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+
+      if (res.statusCode == 200 || res.statusCode == 202) {
+        final data = jsonDecode(res.body);
+        // تأكد من أن اسم المفتاح صحيح (e.g., 'products' or 'data')
+        final products =
+            (data['products'] as List).map((p) => Product.fromJson(p)).toList();
+        _log(methodName, 'Success: Fetched ${products.length} products.');
+        return products;
+      }
+      lastErrorMessage = 'Failed to load products.';
       return [];
     } catch (e) {
       lastErrorMessage = 'An exception occurred: $e';

@@ -31,6 +31,7 @@ import 'package:warehouse/models/stock_item.dart';
 import 'package:warehouse/providers/product_provider.dart';
 import 'package:warehouse/services/suppliers_api.dart';
 import 'package:warehouse/services/warehouse_api.dart';
+import 'package:warehouse/warehouse_updates/updated_api_service.dart';
 
 // ======================
 //  Providers
@@ -170,8 +171,30 @@ final invoicesListProvider =
     FutureProvider<List<Invoice>>((ref) => fetchInvoices());
 
 final productsListProvider =
-    FutureProvider<List<Product>>((ref) => fetchProducts());
+    FutureProvider.autoDispose<List<Product>>((ref) async {
+  // الآن هو يستدعي الـ API الصحيح لجلب قائمة المنتجات
+  final apiService = ApiService();
+  final dynamicProducts = await apiService.getProducts();
 
+  // تحويل List<dynamic> إلى List<Product>
+  return dynamicProducts.map((productJson) {
+    if (productJson is Map<String, dynamic>) {
+      return Product.fromJson(productJson);
+    } else {
+      // في حالة كان العنصر ليس Map، نعيد منتج فارغ أو نتجاهل
+      return Product(
+        id: '',
+        name: 'Invalid Product',
+        importCycle: '',
+        quantity: 0,
+        typeId: '',
+        unit: '',
+        actualPiecePrice: 0.0,
+        supplierId: '',
+      );
+    }
+  }).toList();
+});
 final specializationsListProvider =
     FutureProvider<List<Specialization>>((ref) => fetchSpecializations());
 
@@ -364,6 +387,10 @@ final distributionCentersForWarehouseProvider = FutureProvider.autoDispose
   final int storageMediaId = params['storageMediaId']!;
   return ImportApi.fetchDistributionCentersForWarehouse(
       warehouseId, storageMediaId);
+});
+final supplierStorageMediaProvider = FutureProvider.autoDispose
+    .family<List<StorageMedia>, int>((ref, supplierId) {
+  return SuppliersApi.fetchStorageMediaForSupplier(supplierId);
 });
 
 class WarehouseOccupancyData {
