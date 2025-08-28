@@ -1,17 +1,24 @@
-// models/warehouse.dart
+// lib/models/warehouse.dart
+// ✅ استيراد لتحليل التواريخ
+
 class Warehouse {
-  final String id;
+  final int id;
   final String name;
-  final String? location; // الباك يرجّع location
+  final String? location;
   final double? latitude;
   final double? longitude;
   final int? typeId;
   final int? numSections;
+  final double? capacity;
+  final String? capacityUnit;
+  final double? usageRate;
+  final String? typeName;
+  final String? status;
+  final int? usedCapacity;
 
-  final double? capacity; // إن وُجد
-  final String? capacityUnit; // capacity_unit أو unit
-  final double? usageRate; // 0..1 أو 0..100
-  final String? typeName; // إن وُجد بالرد
+  // ✅ --- تمت إعادتهم ---
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   Warehouse({
     required this.id,
@@ -25,65 +32,62 @@ class Warehouse {
     this.capacityUnit,
     this.usageRate,
     this.typeName,
-    String? address,
-    int? occupied,
-    productIds,
-    required String manager,
-     int? usedCapacity,
+    this.status,
+    this.usedCapacity,
+    this.createdAt, // ✅
+    this.updatedAt, // ✅
   });
 
-  factory Warehouse.fromJson(Map<String, dynamic> j) {
-    String _s(String k) => j[k]?.toString() ?? '';
-    String? _sOpt(String k) => j[k] == null ? null : j[k].toString();
-
-    double? _d(String k) {
-      final v = j[k];
-      if (v == null) return null;
-      if (v is num) return v.toDouble();
-      return double.tryParse(v.toString());
+  factory Warehouse.fromJson(Map<String, dynamic> json) {
+    int? parseInt(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      return int.tryParse(value.toString());
     }
 
-    int _occu; // Will be calculated later
-    int? _i(String k) {
-      final v = j[k];
-      if (v == null) return null;
-      if (v is num) return v.toInt();
-      return int.tryParse(v.toString());
+    double? parseDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      return double.tryParse(value.toString());
     }
 
-    // usageRate قد تأتي كنسبة مئوية، نحولها إلى 0..1
-    double? _usage() {
-      final raw = _d('usage_rate') ?? _d('usageRate') ?? _d('occupancy');
-      if (raw == null) return null;
-      return raw > 1 ? raw / 100.0 : raw;
+    // ✅ دالة مساعدة لتحليل التاريخ بأمان
+    DateTime? parseDateTime(dynamic value) {
+      if (value == null || value is! String) return null;
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        return null;
+      }
     }
 
-    // Calculate occupied capacity after helper functions are defined
-    _occu = _i('occupied') ?? 0;
-
-    final id = _s('id').isNotEmpty ? _s('id') : _s('warehouse_id');
-    final name = _s('name').isNotEmpty ? _s('name') : _s('warehouse_name');
+    final idValue = parseInt(json['id'] ?? json['warehouse_id']);
+    if (idValue == null) {
+      throw const FormatException("Warehouse ID is null or invalid");
+    }
 
     return Warehouse(
-      id: id,
-      name: name,
-      location: _sOpt('location') ?? _sOpt('address'),
-      latitude: _d('latitude'),
-      longitude: _d('longitude'),
-      typeId: _i('type_id'),
-      numSections: _i('num_sections'),
-      capacity: _d('capacity') ?? _d('max_capacity'),
-      capacityUnit: _sOpt('capacity_unit') ?? _sOpt('unit'),
-      usageRate: _usage(),
-      typeName: _sOpt('type_name'),
-      manager: '',
-      usedCapacity: _occu,
+      id: idValue,
+      name:
+          json['name']?.toString() ?? json['warehouse_name']?.toString() ?? '',
+      location: json['location']?.toString() ?? json['address']?.toString(),
+      latitude: parseDouble(json['latitude']),
+      longitude: parseDouble(json['longitude']),
+      typeId: parseInt(json['type_id']),
+      numSections: parseInt(json['num_sections']),
+      capacity: parseDouble(json['capacity'] ?? json['max_capacity']),
+      capacityUnit:
+          json['capacity_unit']?.toString() ?? json['unit']?.toString(),
+      usageRate: parseDouble(
+          json['usage_rate'] ?? json['usageRate'] ?? json['occupancy']),
+      typeName: json['type_name']?.toString(),
+      status: json['status']?.toString(),
+      usedCapacity: parseInt(json['occupied'] ?? json['used_capacity']),
+      createdAt: parseDateTime(json['created_at']), // ✅
+      updatedAt: parseDateTime(json['updated_at']), // ✅
     );
   }
-
-  get createdAt => null;
-
-  get updatedAt => null;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -97,5 +101,9 @@ class Warehouse {
         if (capacityUnit != null) 'capacity_unit': capacityUnit,
         if (usageRate != null) 'usage_rate': usageRate,
         if (typeName != null) 'type_name': typeName,
+        if (status != null) 'status': status,
+        if (usedCapacity != null) 'used_capacity': usedCapacity,
+        if (createdAt != null) 'created_at': createdAt!.toIso8601String(), // ✅
+        if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(), // ✅
       };
 }

@@ -32,7 +32,7 @@ Future<bool?> showEditWarehouseDialog(
   bool saving = false;
 
   Future<void> _save() async {
-    final idInt = int.tryParse(w.id);
+    final idInt = (w.id);
     if (idInt == null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Invalid id: ${w.id}')));

@@ -136,18 +136,13 @@ class AppContainer extends ConsumerWidget {
 
       case WarehouseDetailsNavigationState():
         return WarehouseDetailScreen(
-          warehouseId: state.warehouseId,
+          warehouseId: int.tryParse(state.warehouseId) ?? 0,
           warehouse: Warehouse(
-              id: "",
-              name: "name",
-              address: "address",
-              capacityUnit: "400",
-              location: "location",
-              manager: "manager",
-              productIds: "productIds",
-              usedCapacity: 40,
-              capacity: 50,
-              occupied: 10),
+            id: int.tryParse(state.warehouseId) ?? 0, // تحويل آمن إلى int
+            name: "Loading...", // اسم مؤقت أفضل
+            location: "Loading...", // استخدام location بدلاً من address
+            // الحقول المحذوفة (address, manager, productIds, occupied) تم إزالتها
+          ),
         );
 
 //Display Warehouse Details screen

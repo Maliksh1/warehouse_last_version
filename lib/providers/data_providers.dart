@@ -204,6 +204,28 @@ final specializationsListProvider =
 final vehiclesListProvider =
     FutureProvider<List<Vehicle>>((ref) => fetchVehicles());
 
+final importItemsProvider =
+    StateProvider.autoDispose<List<Map<String, dynamic>>>((ref) => []);
+
+// --- Providers for Wizard Steps (Corrected) ---
+
+// final warehousesForMediaProvider =
+//     FutureProvider.autoDispose.family<List<Warehouse>, int>((ref, storageMediaId) {
+//   return ImportApi.fetchWarehousesForMedia(storageMediaId);
+// });
+
+// // ✅ --- تصحيح Sections Provider لاستخدام Tuple ---
+// final sectionsForPlaceProvider = FutureProvider.autoDispose
+//     .family<List<WarehouseSection>, (int, String, int)>((ref, params) {
+
+//   ref.keepAlive(); // منع إعادة الطلب عند كل rebuild
+
+//   final int storageMediaId = params.$1;
+//   final String placeType = params.$2;
+//   final int placeId = params.$3;
+//   return ImportApi.fetchSectionsForPlace(storageMediaId, placeType, placeId);
+// });
+
 /// البحث عن مستودع بالـ id (String) — يعتمد على warehousesProvider
 final warehouseByIdProvider =
     Provider.family<AsyncValue<Warehouse?>, String>((ref, warehouseId) {
@@ -371,9 +393,16 @@ final warehousesForMediaProvider = FutureProvider.autoDispose
 
 // --- Providers جديدة للخطوة الرابعة ---
 
-/// Provider لجلب الأقسام لمكان معين (مستودع أو مركز توزيع)
+final supplierStorageMediaProvider = FutureProvider.autoDispose
+    .family<List<StorageMedia>, int>((ref, supplierId) {
+  return SuppliersApi.fetchStorageMediaForSupplier(supplierId);
+});
 final sectionsForPlaceProvider = FutureProvider.autoDispose
     .family<List<WarehouseSection>, Map<String, dynamic>>((ref, params) {
+  // ✅ ---  هنا التعديل ---
+  // أخبر الـ Provider أن يحتفظ بالحالة ولا يعيد الطلب عند كل rebuild
+  ref.keepAlive();
+
   final int storageMediaId = params['storageMediaId'];
   final String placeType = params['placeType'];
   final int placeId = params['placeId'];
@@ -383,14 +412,13 @@ final sectionsForPlaceProvider = FutureProvider.autoDispose
 /// Provider لجلب مراكز التوزيع لمستودع معين
 final distributionCentersForWarehouseProvider = FutureProvider.autoDispose
     .family<List<DistributionCenter>, Map<String, int>>((ref, params) {
+  // ✅ ---  وهنا أيضًا ---
+  ref.keepAlive();
+
   final int warehouseId = params['warehouseId']!;
   final int storageMediaId = params['storageMediaId']!;
   return ImportApi.fetchDistributionCentersForWarehouse(
       warehouseId, storageMediaId);
-});
-final supplierStorageMediaProvider = FutureProvider.autoDispose
-    .family<List<StorageMedia>, int>((ref, supplierId) {
-  return SuppliersApi.fetchStorageMediaForSupplier(supplierId);
 });
 
 class WarehouseOccupancyData {

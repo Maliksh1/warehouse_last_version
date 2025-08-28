@@ -30,7 +30,6 @@ class SectionApi {
     return headers;
   }
 
-
   static String? _msgFromBody(String body) {
     try {
       final d = jsonDecode(body);
@@ -103,7 +102,7 @@ class SectionApi {
     required int numPositionsOnClass,
     required String name,
   }) async {
-    final wid = int.tryParse(warehouse.id);
+    final wid = (warehouse.id);
     if (wid == null) {
       throw Exception('Warehouse id is invalid: ${warehouse.id}');
     }
@@ -209,7 +208,8 @@ class SectionApi {
       throw Exception('Failed to load sections (${res.statusCode})');
     }
   }
-   static Future<StorageElementsResult> fetchStorageElementsOnSection(
+
+  static Future<StorageElementsResult> fetchStorageElementsOnSection(
       int sectionId) async {
     final url = Uri.parse('$_base/show_storage_elements_on_section/$sectionId');
     final res = await http.get(url, headers: await _headers());
@@ -237,7 +237,8 @@ class SectionApi {
 
     throw Exception(_msgFromBody(res.body) ?? 'Failed (${res.statusCode})');
   }
-   static Future<List<Continer>> fetchContainersOnStorageElement(
+
+  static Future<List<Continer>> fetchContainersOnStorageElement(
       int storageElementId) async {
     final url =
         Uri.parse('$_base/show_continers_on_storage_element/$storageElementId');
@@ -259,22 +260,24 @@ class SectionApi {
 
     throw Exception(_msgFromBody(res.body) ?? 'Failed (${res.statusCode})');
   }
-  static Future<List<WarehouseSection>> fetchSectionsByDistributionCenter(int dcId) async {
-  final url = Uri.parse('$_base/show_sections_on_place/DistributionCenter/$dcId');
-  final res = await http.get(url, headers: await _headers());
-  debugPrint('[GET] $url -> ${res.statusCode}\n${res.body}');
 
-  if (res.statusCode ~/ 100 == 2) {
-    final data = jsonDecode(res.body);
-    final List list = (data['sections'] as List?) ?? const [];
-    return list.map((e) => WarehouseSection.fromJson(
-      Map<String, dynamic>.from(e as Map),
-    )).toList();
+  static Future<List<WarehouseSection>> fetchSectionsByDistributionCenter(
+      int dcId) async {
+    final url =
+        Uri.parse('$_base/show_sections_on_place/DistributionCenter/$dcId');
+    final res = await http.get(url, headers: await _headers());
+    debugPrint('[GET] $url -> ${res.statusCode}\n${res.body}');
+
+    if (res.statusCode ~/ 100 == 2) {
+      final data = jsonDecode(res.body);
+      final List list = (data['sections'] as List?) ?? const [];
+      return list
+          .map((e) => WarehouseSection.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ))
+          .toList();
+    }
+
+    throw Exception('Failed to load sections (${res.statusCode})');
   }
-
-  throw Exception('Failed to load sections (${res.statusCode})');
 }
-}
-
-
-

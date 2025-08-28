@@ -39,7 +39,7 @@ void showAddProductWithWarehouseDialog(BuildContext context, WidgetRef ref) {
                     ),
                     items: warehouses.map((w) {
                       return DropdownMenuItem(
-                        value: w.id,
+                        value: w.id.toString(),
                         child: Text(w.name),
                       );
                     }).toList(),
@@ -53,6 +53,8 @@ void showAddProductWithWarehouseDialog(BuildContext context, WidgetRef ref) {
               TextFormField(
                 controller: nameController,
                 decoration: InputDecoration(labelText: t.get('product_name')),
+                validator: (val) =>
+                    val?.isEmpty ?? true ? t.get('required_field') : null,
               ),
               TextFormField(
                 controller: skuController,
@@ -61,20 +63,38 @@ void showAddProductWithWarehouseDialog(BuildContext context, WidgetRef ref) {
               TextFormField(
                 controller: categoryIdController,
                 decoration: InputDecoration(labelText: t.get('category')),
+                validator: (val) =>
+                    val?.isEmpty ?? true ? t.get('required_field') : null,
               ),
               TextFormField(
                 controller: supplierIdController,
                 decoration: InputDecoration(labelText: t.get('supplier')),
+                validator: (val) =>
+                    val?.isEmpty ?? true ? t.get('required_field') : null,
               ),
               TextFormField(
                 controller: purchasePriceController,
                 decoration: InputDecoration(labelText: t.get('cost')),
                 keyboardType: TextInputType.number,
+                validator: (val) {
+                  if (val?.isEmpty ?? true) return t.get('required_field');
+                  final price = double.tryParse(val!);
+                  if (price == null || price <= 0)
+                    return t.get('invalid_price');
+                  return null;
+                },
               ),
               TextFormField(
                 controller: sellingPriceController,
                 decoration: InputDecoration(labelText: t.get('price')),
                 keyboardType: TextInputType.number,
+                validator: (val) {
+                  if (val?.isEmpty ?? true) return t.get('required_field');
+                  final price = double.tryParse(val!);
+                  if (price == null || price <= 0)
+                    return t.get('invalid_price');
+                  return null;
+                },
               ),
             ],
           ),
@@ -91,12 +111,13 @@ void showAddProductWithWarehouseDialog(BuildContext context, WidgetRef ref) {
               final newProduct = Product(
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
                 name: nameController.text,
-                importCycle: '',
-                quantity: 20,
-                typeId: '',
-                unit: '',
-                actualPiecePrice: 40,
-                supplierId: '',
+                importCycle: 'monthly', // Default import cycle
+                quantity: 0, // Start with 0 quantity
+                typeId: categoryIdController.text,
+                unit: 'piece', // Default unit
+                actualPiecePrice:
+                    double.tryParse(purchasePriceController.text) ?? 0.0,
+                supplierId: supplierIdController.text,
               );
 
               ref.read(productProvider.notifier).add(newProduct);

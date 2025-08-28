@@ -213,20 +213,35 @@ class ImportApi {
     final url = Uri.parse(
         '$_baseUrl/show_sections_of_storage_media_on_place/$storageMediaId/$placeType/$placeId');
     _log(methodName, 'Calling API: $url');
+
     try {
       final res = await http.get(url, headers: await _getHeaders());
       _log(methodName,
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+
+      // ✅ --- هنا التعديل ---
       if (res.statusCode == 202) {
         final data = jsonDecode(res.body);
-        final sections = (data['sections'] as List)
-            .map((s) => WarehouseSection.fromJson(s))
+        final List list = (data['sections'] as List?) ?? const [];
+        final sections = list
+            .map((e) =>
+                WarehouseSection.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList();
+        _log(methodName, 'Success: Fetched ${sections.length} sections.');
         return sections;
       }
-      return [];
+
+      if (res.statusCode == 404) {
+        _log(methodName,
+            'Success: No sections found (404), returning empty list.');
+        return []; // <-- التعامل مع 404 بهدوء
+      }
+
+      throw Exception('Failed with status code: ${res.statusCode}');
     } catch (e) {
-      throw Exception('Failed to load sections: $e');
+      final errorMsg = 'Failed to load sections for $placeType/$placeId: $e';
+      _log(methodName, 'EXCEPTION: $errorMsg');
+      throw Exception(errorMsg);
     }
   }
 
@@ -237,28 +252,37 @@ class ImportApi {
     final url = Uri.parse(
         '$_baseUrl/show_distribution_centers_of_storage_media_in_warehouse/$warehouseId/$storageMediaId');
     _log(methodName, 'Calling API: $url');
+
     try {
       final res = await http.get(url, headers: await _getHeaders());
       _log(methodName,
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+
       if (res.statusCode == 202) {
         final data = jsonDecode(res.body);
 
-        // --- هنا تم التصحيح ---
-        // 1. قراءة البيانات ككائن (Map)
-        final centersMap =
-            data['distribution_centers'] as Map<String, dynamic>? ?? {};
-        // 2. تحويل قيم الكائن إلى قائمة
-        final centers = centersMap.values
-            .map((dc) => DistributionCenter.fromJson(dc))
-            .toList();
+        // ✅ ---  هنا التصحيح ---
+        // 1. اقرأ البيانات كـ List بدلاً من Map
+        final List centersList =
+            (data['distribution_centers'] as List?) ?? const [];
+
+        // 2. قم بتحويل كل عنصر في القائمة مباشرة
+        final centers =
+            centersList.map((dc) => DistributionCenter.fromJson(dc)).toList();
+
         _log(methodName,
             'Success: Fetched ${centers.length} distribution centers.');
         return centers;
       }
-      return [];
+
+      if (res.statusCode == 404) {
+        _log(methodName,
+            'Success: No distribution centers found (404), returning empty list.');
+        return [];
+      }
+
+      throw Exception('Failed with status code: ${res.statusCode}');
     } catch (e) {
-      // --- تمت إضافة طباعة مفصلة للخطأ هنا ---
       final errorMsg = 'Failed to load distribution centers: $e';
       _log(methodName, 'EXCEPTION: $errorMsg');
       throw Exception(errorMsg);

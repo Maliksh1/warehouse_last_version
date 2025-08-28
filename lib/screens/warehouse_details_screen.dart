@@ -29,7 +29,7 @@ class WarehouseDetailScreen extends ConsumerStatefulWidget {
   const WarehouseDetailScreen({
     Key? key,
     required this.warehouse,
-    String? warehouseId,
+    int? warehouseId,
   }) : super(key: key);
 
   @override
@@ -41,7 +41,7 @@ class _WarehouseDetailScreenState extends ConsumerState<WarehouseDetailScreen>
     with TickerProviderStateMixin {
   late final TabController _tab;
 
-  int get _widInt => int.tryParse(widget.warehouse.id) ?? -1;
+  int get _widInt => (widget.warehouse.id) ?? -1;
 
   @override
   void initState() {
@@ -179,7 +179,7 @@ class _OverviewTab extends StatelessWidget {
                 minHeight: 8,
               ),
               const SizedBox(height: 24),
-              _row('المعرّف', warehouse.id),
+              _row('المعرّف', warehouse.id as String),
               _row('الاسم', warehouse.name),
               _row('الموقع', warehouse.location ?? ''),
               _row('Latitude', (warehouse.latitude?.toString() ?? '')),
@@ -852,7 +852,7 @@ class _ControlPanelTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final wid = int.tryParse(warehouse.id) ?? -1;
+    final wid = (warehouse.id) ?? -1;
     final tiles = <_ActionTile>[
       _ActionTile(
         no: 1,

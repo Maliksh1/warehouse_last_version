@@ -51,10 +51,9 @@ Future<int?> _showSelectPlaceInstanceDialog(
     BuildContext context, WidgetRef ref, String placeType) {
   // --- هنا التصحيح الرئيسي ---
   // تحديد النوع بشكل صريح ليتمكن المترجم من فهمه
-  final dynamic provider =
-      placeType == 'warehouse'
-          ? warehousesProvider
-          : distributionCentersListProvider;
+  final dynamic provider = placeType == 'warehouse'
+      ? warehousesProvider
+      : distributionCentersListProvider;
 
   return showDialog<int>(
     context: context,
@@ -82,7 +81,7 @@ Future<int?> _showSelectPlaceInstanceDialog(
                     final item = items[i];
                     // --- تصحيح ثانوي: تحديد النوع int بشكل مباشر ---
                     final int id = (item is Warehouse)
-                        ? int.parse(item.id)
+                        ? int.parse(item.id as String)
                         : (item as DistributionCenter).id;
                     final String name = (item is Warehouse)
                         ? item.name

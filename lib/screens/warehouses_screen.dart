@@ -145,7 +145,7 @@ class _WarehousesScreenState extends ConsumerState<WarehousesScreen> {
                         );
 
                         if (confirm == true) {
-                          final idInt = int.tryParse(w.id);
+                          final idInt = int.tryParse(w.id as String);
                           if (idInt == null) {
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(

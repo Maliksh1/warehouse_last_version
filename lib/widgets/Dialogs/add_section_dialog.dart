@@ -60,7 +60,7 @@ class _AddSectionDialogState extends ConsumerState<AddSectionDialog> {
       return;
     }
 
-    final wid = int.tryParse(widget.warehouse.id);
+    final wid = (widget.warehouse.id);
     if (wid == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('معرّف مستودع غير صالح'),
