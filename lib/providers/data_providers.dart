@@ -2,8 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:warehouse/models/imported_vehicle_info.dart';
 import 'package:warehouse/models/pending_import_operation.dart';
 import 'package:warehouse/models/pending_product_import.dart';
+import 'package:warehouse/models/pending_vehicle_import.dart';
 import 'package:warehouse/models/storage_media.dart';
 import 'package:warehouse/models/unified_pending_operation.dart';
 import 'package:warehouse/models/warehouse_section.dart';
@@ -174,28 +176,23 @@ final invoicesListProvider =
 
 final productsListProvider =
     FutureProvider.autoDispose<List<Product>>((ref) async {
-  // الآن هو يستدعي الـ API الصحيح لجلب قائمة المنتجات
-  final apiService = ApiService();
-  final dynamicProducts = await apiService.getProducts();
-
-  // تحويل List<dynamic> إلى List<Product>
-  return dynamicProducts.map((productJson) {
-    if (productJson is Map<String, dynamic>) {
-      return Product.fromJson(productJson);
-    } else {
-      // في حالة كان العنصر ليس Map، نعيد منتج فارغ أو نتجاهل
-      return Product(
-        id: '',
-        name: 'Invalid Product',
-        importCycle: '',
-        quantity: 0,
-        unit: '',
-        actualPiecePrice: 0.0,
-        supplierId: '',
-        typeId: null,
-      );
+  try {
+    // استدعاء endpoint show_products مباشرة عبر ProductApi
+    final products = await ProductApi.fetchAllProducts();
+    return products;
+  } catch (e) {
+    // في حال فشل الاتصال بالخادم، نحاول استخدام المنتجات
+    // المخزنة في productProvider. إذا لم تكن موجودة، نحاول تحميلها من الخلفية.
+    try {
+      final notifier = ref.read(productProvider.notifier);
+      if (ref.read(productProvider).isEmpty) {
+        await notifier.loadFromBackend();
+      }
+      return List<Product>.from(ref.read(productProvider));
+    } catch (_) {
+      return const <Product>[];
     }
-  }).toList();
+  }
 });
 final specializationsListProvider =
     FutureProvider<List<Specialization>>((ref) => fetchSpecializations());
@@ -203,8 +200,8 @@ final specializationsListProvider =
 // final suppliersListProvider =
 //     FutureProvider<List<Supplier>>((ref) => fetchSuppliers());
 
-final vehiclesListProvider =
-    FutureProvider<List<Vehicle>>((ref) => fetchVehicles());
+// final vehiclesListProvider =
+//     FutureProvider<List<Vehicle>>((ref) => fetchVehicles());
 
 final importItemsProvider =
     StateProvider.autoDispose<List<Map<String, dynamic>>>((ref) => []);
@@ -300,7 +297,7 @@ final totalTasksCountProvider = Provider<AsyncValue<int>>((ref) {
 });
 
 final availableVehiclesCountProvider = Provider<AsyncValue<int>>((ref) {
-  final vehicles = ref.watch(vehiclesListProvider);
+  final vehicles = ref.read(vehiclesListProvider);
   return vehicles
       .whenData((list) => list.where((v) => v.status == 'available').length);
 });
@@ -353,11 +350,11 @@ class PlaceParameter {
 
 // --- 2. تحديث الـ Provider ليستخدم الكلاس الجديد ---
 // استخدام .autoDispose لحذف البيانات عند الخروج من الشاشة (ممارسة جيدة)
-final productsByPlaceProvider =
-    FutureProvider.family<List<Product>, Map<String, dynamic>>((ref, params) {
-  final String placeType = params['placeType'] as String;
-  final int placeId = params['placeId'] as int;
-  return ProductApi.fetchProductsForPlace(placeType, placeId);
+final productsByPlaceProvider = FutureProvider.autoDispose
+    .family<List<Product>, PlaceParameter>((ref, params) {
+  // نحافظ على الحالة حتى لا يتم التخلص منها فور خروج المستخدم من الشاشة
+  ref.keepAlive();
+  return ProductApi.fetchProductsForPlace(params.placeType, params.placeId);
 });
 final suppliersListProvider = FutureProvider.autoDispose<List<Supplier>>((ref) {
   return SuppliersApi.fetchSuppliers();
@@ -475,6 +472,84 @@ final pendingProductImportsProvider =
 });
 
 // ✅ --- StateNotifier جديد لإدارة قائمة العمليات المدمجة ---
+// class AllPendingOperationsNotifier
+//     extends StateNotifier<AsyncValue<List<UnifiedPendingOperation>>> {
+//   final Ref _ref;
+
+//   AllPendingOperationsNotifier(this._ref) : super(const AsyncValue.loading()) {
+//     fetchOperations();
+//   }
+
+//   Future<void> fetchOperations() async {
+//     state = const AsyncValue.loading();
+//     try {
+//       List<PendingImportOperation> storageMediaOps = [];
+//       List<PendingProductImport> productOps = [];
+//       final combinedList = <UnifiedPendingOperation>[];
+
+//       // جلب العمليات الأولى (وسائط التخزين)
+//       try {
+//         storageMediaOps = await ImportApi.fetchPendingImportOperations();
+//         combinedList
+//             .addAll(storageMediaOps.map((op) => StorageMediaOperation(op)));
+//       } catch (e) {
+//         debugPrint('Error fetching storage media imports: $e');
+//       }
+
+//       // جلب العمليات الثانية (المنتجات)
+//       try {
+//         productOps = await ImportApi.fetchPendingProductImports();
+//         combinedList.addAll(productOps.map((op) => ProductOperation(op)));
+//       } catch (e) {
+//         debugPrint('Error fetching product imports: $e');
+//       }
+
+//       state = AsyncValue.data(combinedList);
+//     } catch (e, s) {
+//       // هذا الـ catch سيتم استخدامه فقط في حالات الفشل غير المتوقعة
+//       state = AsyncValue.error(e, s);
+//     }
+//   }
+
+//   // ✅ --- دالة لإزالة عملية من القائمة بشكل فوري ---
+//   void removeOperation(UnifiedPendingOperation operationToRemove) {
+//     state.whenData((operations) {
+//       final newList = List<UnifiedPendingOperation>.from(operations);
+
+//       String keyToRemove;
+//       if (operationToRemove is StorageMediaOperation) {
+//         keyToRemove = operationToRemove.operation.importOperationKey;
+//         newList.removeWhere((op) =>
+//             op is StorageMediaOperation &&
+//             op.operation.importOperationKey == keyToRemove);
+//       } else if (operationToRemove is ProductOperation) {
+//         keyToRemove = operationToRemove.operation.importOperationKey;
+//         newList.removeWhere((op) =>
+//             op is ProductOperation &&
+//             op.operation.importOperationKey == keyToRemove);
+//       }
+
+//       state = AsyncValue.data(newList);
+//     });
+//   }
+// }
+
+// ✅ --- استبدال الـ Provider القديم بالجديد ---
+final allPendingOperationsProvider = StateNotifierProvider.autoDispose<
+    AllPendingOperationsNotifier, AsyncValue<List<UnifiedPendingOperation>>>(
+  (ref) {
+    return AllPendingOperationsNotifier(ref);
+  },
+);
+final pendingVehicleImportsProvider =
+    FutureProvider.autoDispose<List<PendingVehicleImport>>((ref) {
+  return ImportApi.fetchPendingVehicleImports();
+});
+
+// ... (بقية الـ providers)
+
+// lib/providers/data_providers.dart
+// ... (الكود الموجود)
 class AllPendingOperationsNotifier
     extends StateNotifier<AsyncValue<List<UnifiedPendingOperation>>> {
   final Ref _ref;
@@ -486,23 +561,25 @@ class AllPendingOperationsNotifier
   Future<void> fetchOperations() async {
     state = const AsyncValue.loading();
     try {
-      // استدعاء كلا الـ Providers بالتوازي
-      final storageMediaFuture = _ref.watch(
-          pendingImportsProvider.future as AlwaysAliveProviderListenable);
-      final productFuture = _ref.watch(pendingProductImportsProvider.future
-          as AlwaysAliveProviderListenable);
+      final storageMediaFuture = _ref.read(pendingImportsProvider.future);
+      final productFuture = _ref.read(pendingProductImportsProvider.future);
+      final vehicleFuture = _ref.read(pendingVehicleImportsProvider.future);
 
-      final results = await Future.wait(
-          [storageMediaFuture, productFuture] as Iterable<Future>);
+      final results = await Future.wait([
+        storageMediaFuture,
+        productFuture,
+        vehicleFuture,
+      ]);
 
-      final storageMediaOps = results[0];
-      final productOps = results[1];
+      final storageMediaOps = results[0] as List<PendingImportOperation>;
+      final productOps = results[1] as List<PendingProductImport>;
+      final vehicleOps = results[2] as List<PendingVehicleImport>;
 
-      // دمج النتائج في قائمة واحدة موحدة
       final List<UnifiedPendingOperation> combinedList = [];
       combinedList
           .addAll(storageMediaOps.map((op) => StorageMediaOperation(op)));
       combinedList.addAll(productOps.map((op) => ProductOperation(op)));
+      combinedList.addAll(vehicleOps.map((op) => VehicleOperation(op)));
 
       state = AsyncValue.data(combinedList);
     } catch (e, s) {
@@ -533,13 +610,50 @@ class AllPendingOperationsNotifier
   }
 }
 
-// ✅ --- استبدال الـ Provider القديم بالجديد ---
-final allPendingOperationsProvider = StateNotifierProvider.autoDispose<
-    AllPendingOperationsNotifier, AsyncValue<List<UnifiedPendingOperation>>>(
-  (ref) {
-    return AllPendingOperationsNotifier(ref);
-  },
-);
+final vehicleImportWizardProvider = StateNotifierProvider.autoDispose<
+    VehicleImportWizardNotifier,
+    List<ImportedVehicleInfo>>((ref) => VehicleImportWizardNotifier());
+
+class VehicleImportWizardNotifier
+    extends StateNotifier<List<ImportedVehicleInfo>> {
+  VehicleImportWizardNotifier() : super([]);
+
+  void addVehicle(ImportedVehicleInfo vehicle) {
+    state = [...state, vehicle];
+  }
+
+  void removeVehicle(ImportedVehicleInfo vehicle) {
+    state = state.where((v) => v != vehicle).toList();
+  }
+
+  void updateVehicle(
+      ImportedVehicleInfo oldVehicle, ImportedVehicleInfo newVehicle) {
+    state = [
+      for (final vehicle in state)
+        if (vehicle == oldVehicle) newVehicle else vehicle,
+    ];
+  }
+
+  void clear() {
+    state = [];
+  }
+}
+
+int garageId = garageId;
+// ✅ مزود جديد لجلب كل المركبات
+final vehiclesListProvider =
+    FutureProvider.autoDispose<List<Vehicle>>((ref) async {
+  return GarageApi.fetchVehiclesInGarage(garageId);
+});
+
+// ✅ مزود جديد لجلب الجراجات ومراكز التوزيع
+final placesListProvider =
+    FutureProvider.autoDispose<List<dynamic>>((ref) async {
+  final warehouses = await ref.watch(warehousesProvider.future);
+  final distributionCenters =
+      await ref.watch(distributionCentersListProvider.future);
+  return [...warehouses, ...distributionCenters];
+});
 
 class WarehouseOccupancyData {
   final String name;

@@ -23,13 +23,13 @@ class PendingImportOperation {
   });
 
   factory PendingImportOperation.fromJson(Map<String, dynamic> json) {
-    return PendingImportOperation(
-      importOperationKey: json['import_operation_key'] as String,
-      storageMediaKey: json['storage_media_key'] as String,
+     return PendingImportOperation(
+      importOperationKey: json['import_operation_key']?.toString() ?? 'N/A', // ✅ تحويل آمن إلى String
+      storageMediaKey: json['storage_media_key']?.toString() ?? 'N/A', // ✅ تحويل آمن إلى String
       supplier: Supplier.fromJson(Map<String, dynamic>.from(json['supplier'])),
-      location: json['location'] as String,
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      location: json['location']?.toString() ?? 'N/A', // ✅ تحويل آمن إلى String
+      latitude: (json['latitude'] is num ? (json['latitude'] as num).toDouble() : double.tryParse(json['latitude']?.toString() ?? '0') ?? 0.0),
+      longitude: (json['longitude'] is num ? (json['longitude'] as num).toDouble() : double.tryParse(json['longitude']?.toString() ?? '0') ?? 0.0),
       // ✅ استدعاء الدالة المساعدة الذكية لتحليل القائمة المعقدة
       storageItems: _parseStorageItems(json['storage_media']),
     );
@@ -37,7 +37,7 @@ class PendingImportOperation {
 
   // ✅ دالة مساعدة لدمج بيانات العناصر والأقسام من القائمة غير المتجانسة
   static List<ImportedStorageItem> _parseStorageItems(dynamic rawItems) {
-    if (rawItems is! List) return [];
+    if (rawItems == null) return [];
 
     final List<Map<String, dynamic>> items = List<Map<String, dynamic>>.from(
         rawItems.map((item) => Map<String, dynamic>.from(item)));
@@ -92,11 +92,10 @@ class ImportedStorageItem {
       throw FormatException(
           "Invalid ImportedStorageItem JSON after merge: $json");
     }
-    return ImportedStorageItem(
-      storageMediaId: json['storage_media_id'] as int,
-      quantity: json['quantity'] as int,
-      section:
-          WarehouseSection.fromJson(Map<String, dynamic>.from(json['section'])),
+      return ImportedStorageItem(
+      storageMediaId: (json['storage_media_id'] is num ? json['storage_media_id'] as int : int.tryParse(json['storage_media_id']?.toString() ?? '0') ?? 0),
+      quantity: (json['quantity'] is num ? json['quantity'] as int : int.tryParse(json['quantity']?.toString() ?? '0') ?? 0),
+      section: WarehouseSection.fromJson(Map<String, dynamic>.from(json['section'])),
     );
   }
 }

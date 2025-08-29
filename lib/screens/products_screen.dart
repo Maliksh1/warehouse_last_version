@@ -6,6 +6,8 @@ import 'package:warehouse/models/product.dart';
 import 'package:warehouse/providers/api_service_provider.dart';
 import 'package:warehouse/providers/navigation_provider.dart';
 import 'package:warehouse/providers/product_provider.dart';
+import 'package:warehouse/screens/product_details_screen.dart';
+import 'package:warehouse/screens/wizards/product_import_wizard.dart';
 import 'package:warehouse/widgets/Dialogs/show_add_general_product_dialog.dart';
 import '../widgets/Dialogs/show_edit_product_dialog.dart';
 
@@ -146,10 +148,22 @@ class ProductsScreen extends ConsumerWidget {
                     style: Theme.of(context).textTheme.headlineMedium),
                 Row(
                   children: [
-                    OutlinedButton.icon(
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
                       icon: const Icon(Icons.refresh),
                       label: Text(t.get('refresh') ?? 'تحديث'),
                       onPressed: productsAsync.isLoading ? null : _refresh,
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.download),
+                      label: Text(t.get('Import Products') ?? 'استيراد منتجات'),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (ctx) => const ProductImportWizard()),
+                        );
+                      },
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
@@ -222,9 +236,16 @@ class ProductsScreen extends ConsumerWidget {
                               ],
                             ),
                             isThreeLine: true,
-                            onTap: () => navigation.go(
-                              NavigationState.productDetails(p.id),
-                            ),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ProductDetailsScreen(
+                                    productId: p.id,
+                                    selectedProduct: p, // تمرير الكائن مباشرة
+                                  ),
+                                ),
+                              );
+                            },
                             trailing: Wrap(
                               spacing: 6,
                               children: [

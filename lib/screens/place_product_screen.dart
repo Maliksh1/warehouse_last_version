@@ -1,10 +1,9 @@
-// lib/screens/place_products_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/models/product.dart';
 import 'package:warehouse/providers/data_providers.dart';
+import 'package:warehouse/screens/product_details_screen.dart'; // استيراد شاشة التفاصيل
 
-// --- 1. تحويل الويدجت إلى ConsumerStatefulWidget ---
 class PlaceProductsScreen extends ConsumerStatefulWidget {
   final String placeType;
   final int placeId;
@@ -23,24 +22,15 @@ class PlaceProductsScreen extends ConsumerStatefulWidget {
 }
 
 class _PlaceProductsScreenState extends ConsumerState<PlaceProductsScreen> {
-  // --- 2. تعريف متغير لتخزين كائن المتغيرات ---
-  late final PlaceParameter params;
-
   @override
-  void initState() {
-    super.initState();
-    // --- 3. إنشاء كائن المتغيرات مرة واحدة فقط عند تهيئة الشاشة ---
-    params = PlaceParameter(
+  Widget build(BuildContext context) {
+    // إنشاء كائن ثابت كمفتاح للمزوّد
+    final param = PlaceParameter(
       placeType: widget.placeType,
       placeId: widget.placeId,
     );
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    // --- 4. استخدام نفس الكائن 'params' في كل مرة يتم فيها إعادة البناء ---
-    final productsAsyncValue =
-        ref.watch(productsByPlaceProvider(params as Map<String, dynamic>));
+    final productsAsyncValue = ref.watch(productsByPlaceProvider(param));
 
     return Scaffold(
       appBar: AppBar(
@@ -48,14 +38,13 @@ class _PlaceProductsScreenState extends ConsumerState<PlaceProductsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.refresh(
-                productsByPlaceProvider(params as Map<String, dynamic>)),
+            onPressed: () => ref.refresh(productsByPlaceProvider(param)),
           ),
         ],
       ),
       body: productsAsyncValue.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('An error occurred: $err')),
+        error: (err, _) => Center(child: Text('An error occurred: $err')),
         data: (products) {
           if (products.isEmpty) {
             return const Center(
@@ -66,8 +55,7 @@ class _PlaceProductsScreenState extends ConsumerState<PlaceProductsScreen> {
             );
           }
           return RefreshIndicator(
-            onRefresh: () async => ref.refresh(
-                productsByPlaceProvider(params as Map<String, dynamic>)),
+            onRefresh: () async => ref.refresh(productsByPlaceProvider(param)),
             child: ListView.builder(
               itemCount: products.length,
               itemBuilder: (ctx, index) {
@@ -80,8 +68,10 @@ class _PlaceProductsScreenState extends ConsumerState<PlaceProductsScreen> {
                     leading: CircleAvatar(
                       child: Text(product.id.toString()),
                     ),
-                    title: Text(product.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    title: Text(
+                      product.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: Text('Type: ${product.typeId}'),
                     trailing: Text(
                       'Quantity: ${product.quantity}',
@@ -91,6 +81,17 @@ class _PlaceProductsScreenState extends ConsumerState<PlaceProductsScreen> {
                         color: Colors.blueGrey,
                       ),
                     ),
+                    // عند الضغط على البطاقة، الانتقال لشاشة تفاصيل المنتج
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ProductDetailsScreen(
+                            productId: product.id,
+                            selectedProduct: product, // تمرير الكائن
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 );
               },

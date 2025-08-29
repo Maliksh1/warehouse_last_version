@@ -1,6 +1,9 @@
 // lib/screens/warehouse_details_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:warehouse/screens/send_products_screen.dart';
+import 'package:warehouse/widgets/send_products_card.dart';
+import 'package:warehouse/models/transfer_request.dart';
 
 import 'package:warehouse/lang/app_localizations.dart';
 import 'package:warehouse/models/parent_storage_media.dart';
@@ -179,7 +182,7 @@ class _OverviewTab extends StatelessWidget {
                 minHeight: 8,
               ),
               const SizedBox(height: 24),
-              _row('المعرّف', warehouse.id as String),
+              _row('المعرّف', warehouse.id.toString()), // تم التعديل هنا
               _row('الاسم', warehouse.name),
               _row('الموقع', warehouse.location ?? ''),
               _row('Latitude', (warehouse.latitude?.toString() ?? '')),
@@ -906,7 +909,14 @@ class _ControlPanelTab extends StatelessWidget {
         title: 'إرسال منتجات لمركز توزيع',
         subtitle: 'قيود السعات والشاحنات تلقائيًا',
         icon: Icons.send_outlined,
-        onTap: () {},
+        onTap: () {
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => SendProductsScreen(
+              prefillSourceType: PlaceType.Warehouse,
+              prefillSourceId: warehouse.id, // المعرّف الحالي للمستودع المفتوح
+            ),
+          ));
+        },
       ),
       _ActionTile(
         no: 6,

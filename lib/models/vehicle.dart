@@ -14,6 +14,9 @@ class Vehicle {
   final String? expiration;
   final String? productedIn;
   final double readiness;
+  final String? location; // ✅ Updated
+  final double? latitude; // ✅ Updated
+  final double? longitude; // ✅ Updated
   final String sizeOfVehicle;
   final int capacity;
   final int productId;
@@ -26,6 +29,9 @@ class Vehicle {
     this.expiration,
     this.productedIn,
     required this.readiness,
+    this.location, // ✅ Updated
+    this.latitude, // ✅ Updated
+    this.longitude, // ✅ Updated
     required this.sizeOfVehicle,
     required this.capacity,
     required this.productId,
@@ -55,12 +61,14 @@ class Vehicle {
       expiration: json['expiration'] as String?,
       productedIn: json['producted_in'] as String?,
       readiness: (json['readiness'] as num).toDouble(),
+      location: json['location'] as String?, // ✅ Added
+      latitude: (json['latitude'] as num?)?.toDouble(), // ✅ Added
+      longitude: (json['longitude'] as num?)?.toDouble(), // ✅ Added
       sizeOfVehicle: json['size_of_vehicle'] as String,
       capacity: (json['capacity'] as num).toInt(),
       productId: (json['product_id'] as num).toInt(),
       imageUrl: json['image'] as String?,
-      status:
-          parseStatus(json['status'] as String?), // **[NEW]** Parsing status
+      status: parseStatus(json['status'] as String?),
     );
   }
 }

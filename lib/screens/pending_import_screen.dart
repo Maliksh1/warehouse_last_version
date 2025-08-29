@@ -57,6 +57,9 @@ class PendingImportsScreen extends ConsumerWidget {
                   return _StorageMediaImportCard(operation: operation);
                 } else if (operation is ProductOperation) {
                   return _ProductImportCard(operation: operation);
+                } else if (operation is VehicleOperation) {
+                  // ✅ عرض كارد المركبات الجديد
+                  return _VehicleImportCard(operation: operation);
                 }
                 return const SizedBox.shrink();
               },
@@ -107,9 +110,10 @@ class _StorageMediaImportCardState
 
   Future<void> _handleReject() async {
     setState(() => _isLoading = true);
+
     final success = await ImportApi.rejectImportOperation(
       importKey: widget.operation.operation.importOperationKey,
-      storageKey: widget.operation.operation.storageMediaKey,
+      key: widget.operation.operation.storageMediaKey,
     );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -277,6 +281,125 @@ class _ProductImportCardState extends ConsumerState<_ProductImportCard> {
                   title: Text('Product: ${item.product.name}'),
                   subtitle: Text('Total Load: ${item.importedLoad}'),
                   trailing: Text('Price: ${item.pricePerUnit}'),
+                );
+              }).toList(),
+            ),
+            const Divider(),
+            if (_isLoading)
+              const Center(
+                  child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator()))
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                      onPressed: _handleReject,
+                      child: const Text('Reject',
+                          style: TextStyle(color: Colors.red))),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _handleAccept,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Accept'),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VehicleImportCard extends ConsumerStatefulWidget {
+  final VehicleOperation operation;
+  const _VehicleImportCard({required this.operation});
+
+  @override
+  ConsumerState<_VehicleImportCard> createState() => _VehicleImportCardState();
+}
+
+class _VehicleImportCardState extends ConsumerState<_VehicleImportCard> {
+  bool _isLoading = false;
+
+  Future<void> _handleAccept() async {
+    setState(() => _isLoading = true);
+    final success = await ImportApi.acceptVehicleImport(
+      importKey: widget.operation.operation.importOperationKey,
+      vehiclesKey: widget.operation.operation.vehiclesKey,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success
+            ? 'Operation Accepted!'
+            : ImportApi.lastErrorMessage ?? 'Failed.'),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ));
+      if (success) {
+        ref
+            .read(allPendingOperationsProvider.notifier)
+            .removeOperation(widget.operation);
+      }
+    }
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> _handleReject() async {
+    setState(() => _isLoading = true);
+    final success = await ImportApi.rejectImportOperation(
+      importKey: widget.operation.operation.importOperationKey,
+      key: widget.operation.operation.vehiclesKey,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success
+            ? 'Operation Rejected!'
+            : ImportApi.lastErrorMessage ?? 'Failed.'),
+        backgroundColor: success ? Colors.blueGrey : Colors.red,
+      ));
+      if (success) {
+        ref
+            .read(allPendingOperationsProvider.notifier)
+            .removeOperation(widget.operation);
+      }
+    }
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final op = widget.operation.operation;
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(
+                  child: Icon(Icons.local_shipping_outlined)),
+              title: const Text('Vehicle Import',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('Supplier: ${op.supplier.name}'),
+            ),
+            const Divider(),
+            ExpansionTile(
+              title: Text('${op.vehicles.length} vehicles to be imported'),
+              children: op.vehicles.map((vehicle) {
+                return ListTile(
+                  title: Text(vehicle.name),
+                  subtitle: Text(
+                      'Capacity: ${vehicle.capacity} | Size: ${vehicle.sizeOfVehicle}'),
+                  trailing: Text('Readiness: ${vehicle.readiness}'),
                 );
               }).toList(),
             ),

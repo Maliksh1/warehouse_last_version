@@ -55,16 +55,21 @@ class ProductApi {
       if (res.statusCode == 202) {
         final data = jsonDecode(res.body);
         final productsMap = data['products'] as Map<String, dynamic>? ?? {};
+        // التحقق من أن القيمة هي خريطة، ثم أخذ قيمها كقائمة
         final productList =
             productsMap.values.map((p) => Product.fromJson(p)).toList();
         _log(methodName,
             'Success: Fetched ${productList.length} products for $placeType $placeId.');
         return productList;
-      } else {
+      }
+      
+      
+       else {
         lastErrorMessage =
             jsonDecode(res.body)['msg'] ?? 'Failed to load products for place.';
         _log(methodName, 'Error: $lastErrorMessage');
-        return [];
+        // Throw an exception for non-202 status codes
+        throw Exception(lastErrorMessage);
       }
     } catch (e) {
       lastErrorMessage = 'An exception occurred in $methodName: $e';
@@ -110,6 +115,39 @@ class ProductApi {
       lastErrorMessage = 'An exception occurred in $methodName: $e';
       _log(methodName, 'Exception: $lastErrorMessage');
       return false;
+    }
+  }
+
+  static Future<List<Product>> fetchAllProducts() async {
+    const methodName = 'fetchAllProducts';
+    final uri = Uri.parse('$_baseUrl/show_products');
+    _log(methodName, 'Calling API: $uri');
+    try {
+      final res = await http.get(uri, headers: await _getHeaders());
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+
+      if (res.statusCode == 202) {
+        final data = jsonDecode(res.body);
+        final productsData = data['products'];
+        if (productsData is List) {
+          return productsData.map<Product>((p) => Product.fromJson(p)).toList();
+        } else if (productsData is Map<String, dynamic>) {
+          return productsData.values
+              .map<Product>((p) => Product.fromJson(p))
+              .toList();
+        } else {
+          return <Product>[];
+        }
+      } else {
+        final body = jsonDecode(res.body);
+        lastErrorMessage =
+            body['msg'] ?? body['message'] ?? 'Failed to load products';
+        throw Exception(lastErrorMessage);
+      }
+    } catch (e) {
+      lastErrorMessage = 'An exception occurred in $methodName: $e';
+      throw Exception(lastErrorMessage);
     }
   }
 }

@@ -69,65 +69,23 @@ class ApiService {
 
   // الحصول على قائمة المنتجات
   Future<List<dynamic>> getProducts() async {
-    try {
-      final auth = await _headers(withAuth: true);
-      final headers = {
-        ...auth,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      };
+    final uri = Uri.parse('$baseUrl/show_products');
+    final headers = await _headers(); // يجب أن يحوي التوكن في 'Authorization'
+    final response = await http.get(uri, headers: headers);
 
-      final url = Uri.parse('$baseUrl/show_products');
-      final res = await http.get(url, headers: headers);
-
-      debugPrint('[GET] $url');
-      debugPrint('Status: ${res.statusCode}');
-      debugPrint('CT    : ${res.headers['content-type']}');
-
-      final raw = (res.body).trim();
-      final isJsonLike = raw.startsWith('{') || raw.startsWith('[');
-
-      // اعتبر 200/201/202/204 نجاح
-      if (res.statusCode == 200 ||
-          res.statusCode == 201 ||
-          res.statusCode == 202 ||
-          res.statusCode == 204) {
-        if (raw.isEmpty || raw == 'null') return <dynamic>[];
-        if (!isJsonLike) {
-          // السيرفر قال JSON لكنه رجّع نص — نتجنب الكسر ونرجع []
-          debugPrint(
-              'Non-JSON body preview: ${raw.length > 180 ? raw.substring(0, 180) + '…' : raw}');
-          return <dynamic>[];
-        }
-
-        final decoded = jsonDecode(raw);
-        if (decoded is List) return decoded;
-        if (decoded is Map) {
-          if (decoded['products'] is List)
-            return List<dynamic>.from(decoded['products']);
-          if (decoded['data'] is List)
-            return List<dynamic>.from(decoded['data']);
-          if (decoded['items'] is List)
-            return List<dynamic>.from(decoded['items']);
-        }
-        return <dynamic>[];
+    if (response.statusCode == 202) {
+      final data = jsonDecode(response.body);
+      final products = data['products'];
+      if (products is List) {
+        return products;
+      } else if (products is Map<String, dynamic>) {
+        return products.values.toList();
       }
-
-      if (res.statusCode == 401) {
-        throw Exception('401 Unauthorized: تأكد من التوكن/الصلاحيات');
-      }
-
-      // أخطاء أخرى: حاول استخراج رسالة مفهومة
-      try {
-        final err = jsonDecode(raw);
-        final msg =
-            (err['message'] ?? err['msg'] ?? err['error'] ?? err).toString();
-        throw Exception('فشل الحصول على المنتجات: ${res.statusCode} - $msg');
-      } catch (_) {
-        throw Exception('فشل الحصول على المنتجات: ${res.statusCode} - $raw');
-      }
-    } catch (e) {
-      throw Exception('خطأ في الاتصال بالخادم: $e');
+      return [];
+    } else {
+      final body = jsonDecode(response.body);
+      final msg = body['msg'] ?? body['message'] ?? 'Unknown error';
+      throw Exception('فشل الحصول على المنتجات: ${response.statusCode} - $msg');
     }
   }
 

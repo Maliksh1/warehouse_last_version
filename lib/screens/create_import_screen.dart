@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/screens/pending_import_screen.dart';
 import 'package:warehouse/screens/wizards/product_import_wizard.dart';
 import 'package:warehouse/screens/wizards/storage_media_import_wizard.dart';
+import 'package:warehouse/screens/wizards/vehicle_import_wizard.dart';
 
 class CreateImportScreen extends ConsumerWidget {
   const CreateImportScreen({super.key});
@@ -70,17 +71,15 @@ class CreateImportScreen extends ConsumerWidget {
           ),
 
           const SizedBox(height: 16),
-
-          // --- 3. كارد استيراد المركبات (مستقبلي) ---
+          // ✅ --- 3. كارد استيراد المركبات الجديد ---
           _ImportActionCard(
             title: 'Import Vehicles',
-            subtitle: 'Start the process to import new vehicles.',
-            icon: Icons.local_shipping_outlined,
+            subtitle: 'Import new vehicles from a supplier.',
+            icon: Icons.local_shipping,
             onTap: () {
-              // يمكنك إضافة معالج استيراد المركبات هنا في المستقبل
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Vehicle import feature is coming soon!'),
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const VehicleImportWizard(),
                 ),
               );
             },

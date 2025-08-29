@@ -4,8 +4,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:warehouse/models/distribution_center.dart';
+import 'package:warehouse/models/imported_vehicle_info.dart';
 import 'package:warehouse/models/pending_import_operation.dart';
 import 'package:warehouse/models/pending_product_import.dart';
+import 'package:warehouse/models/pending_vehicle_import.dart';
 import 'package:warehouse/models/storage_media.dart';
 import 'package:warehouse/models/supplier.dart';
 import 'package:warehouse/models/warehouse.dart';
@@ -43,61 +45,61 @@ class ImportApi {
   }
 
   /// Fetches latest pending import operations from cache.
-  static Future<List<PendingImportOperation>>
-      fetchPendingImportOperations() async {
-    const methodName = 'fetchPendingImportOperations';
-    final url = Uri.parse('$_baseUrl/show_latest_import_op_storage_media');
-    _log(methodName, 'Calling API: $url');
-    try {
-      final res = await http.get(url, headers: await _getHeaders());
-      _log(methodName,
-          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+  // static Future<List<PendingImportOperation>>
+  //     fetchPendingImportOperations() async {
+  //   const methodName = 'fetchPendingImportOperations';
+  //   final url = Uri.parse('$_baseUrl/show_latest_import_op_storage_media');
+  //   _log(methodName, 'Calling API: $url');
+  //   try {
+  //     final res = await http.get(url, headers: await _getHeaders());
+  //     _log(methodName,
+  //         'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
+  //     if (res.statusCode == 200) {
+  //       final data = jsonDecode(res.body);
 
-        // ✅ ---  المنطق الجديد والأكثر قوة ---
+  //       // ✅ ---  المنطق الجديد والأكثر قوة ---
 
-        // الحالة 1: الخادم يرسل قائمة (مثل ["no operation"])
-        if (data is List) {
-          _log(methodName, 'Response is a List. Assuming no operations.');
-          return [];
-        }
+  //       // الحالة 1: الخادم يرسل قائمة (مثل ["no operation"])
+  //       if (data is List) {
+  //         _log(methodName, 'Response is a List. Assuming no operations.');
+  //         return [];
+  //       }
 
-        // الحالة 2: الخادم يرسل كائنًا (Map)
-        if (data is Map<String, dynamic>) {
-          final operationsData = data['import_operations'];
+  //       // الحالة 2: الخادم يرسل كائنًا (Map)
+  //       if (data is Map<String, dynamic>) {
+  //         final operationsData = data['import_operations'];
 
-          if (operationsData == null) {
-            _log(methodName, 'Success: "import_operations" key not found.');
-            return [];
-          }
+  //         if (operationsData == null) {
+  //           _log(methodName, 'Success: "import_operations" key not found.');
+  //           return [];
+  //         }
 
-          if (operationsData is Map) {
-            // التحويل الصريح إلى Map<String, dynamic>
-            final castedOperationsData =
-                Map<String, dynamic>.from(operationsData);
-            final operations = castedOperationsData.values
-                .map((opJson) => PendingImportOperation.fromJson(
-                    opJson as Map<String, dynamic>))
-                .toList();
-            _log(methodName,
-                'Success: Parsed ${operations.length} operations from MAP structure.');
-            return operations;
-          }
-        }
+  //         if (operationsData is Map) {
+  //           // التحويل الصريح إلى Map<String, dynamic>
+  //           final castedOperationsData =
+  //               Map<String, dynamic>.from(operationsData);
+  //           final operations = castedOperationsData.values
+  //               .map((opJson) => PendingImportOperation.fromJson(
+  //                   opJson as Map<String, dynamic>))
+  //               .toList();
+  //           _log(methodName,
+  //               'Success: Parsed ${operations.length} operations from MAP structure.');
+  //           return operations;
+  //         }
+  //       }
 
-        _log(methodName,
-            'Warning: Response format is unexpected. Returning empty list.');
-        return [];
-      }
+  //       _log(methodName,
+  //           'Warning: Response format is unexpected. Returning empty list.');
+  //       return [];
+  //     }
 
-      return [];
-    } catch (e) {
-      _log(methodName, 'EXCEPTION: $e');
-      throw Exception('Failed to load pending import operations: $e');
-    }
-  }
+  //     return [];
+  //   } catch (e) {
+  //     _log(methodName, 'EXCEPTION: $e');
+  //     throw Exception('Failed to load pending import operations: $e');
+  //   }
+  // }
 
   /// Accepts a pending import operation.
   static Future<bool> acceptImportOperation({
@@ -131,35 +133,35 @@ class ImportApi {
   }
 
   /// Rejects a pending import operation.
-  static Future<bool> rejectImportOperation({
-    required String importKey,
-    required String storageKey,
-  }) async {
-    const methodName = 'rejectImportOperation';
-    final url = Uri.parse('$_baseUrl/reject_import_op');
-    final payload = {
-      'import_operation_key': importKey,
-      'key': storageKey,
-    };
-    _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
-    try {
-      final res = await http.post(url,
-          headers: await _getHeaders(), body: jsonEncode(payload));
-      _log(methodName,
-          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
-      if (res.statusCode == 202) {
-        _log(methodName, 'Success: Operation rejected.');
-        return true;
-      }
-      lastErrorMessage =
-          jsonDecode(res.body)['msg'] ?? 'Failed to reject operation.';
-      return false;
-    } catch (e) {
-      lastErrorMessage = 'An exception occurred: $e';
-      _log(methodName, 'Exception: $lastErrorMessage');
-      return false;
-    }
-  }
+  // static Future<bool> rejectImportOperation({
+  //   required String importKey,
+  //   required String storageKey,
+  // }) async {
+  //   const methodName = 'rejectImportOperation';
+  //   final url = Uri.parse('$_baseUrl/reject_import_op');
+  //   final payload = {
+  //     'import_operation_key': importKey,
+  //     'key': storageKey,
+  //   };
+  //   _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
+  //   try {
+  //     final res = await http.post(url,
+  //         headers: await _getHeaders(), body: jsonEncode(payload));
+  //     _log(methodName,
+  //         'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+  //     if (res.statusCode == 202) {
+  //       _log(methodName, 'Success: Operation rejected.');
+  //       return true;
+  //     }
+  //     lastErrorMessage =
+  //         jsonDecode(res.body)['msg'] ?? 'Failed to reject operation.';
+  //     return false;
+  //   } catch (e) {
+  //     lastErrorMessage = 'An exception occurred: $e';
+  //     _log(methodName, 'Exception: $lastErrorMessage');
+  //     return false;
+  //   }
+  // }
 
   static Future<List<StorageMedia>> fetchStorageMedia() async {
     const methodName = 'fetchStorageMedia';
@@ -415,38 +417,38 @@ class ImportApi {
     }
   }
 
-  static Future<List<PendingProductImport>> fetchPendingProductImports() async {
-    const methodName = 'fetchPendingProductImports';
-    final url = Uri.parse('$_baseUrl/show_latest_import_op_products');
-    _log(methodName, 'Calling API: $url');
-    try {
-      final res = await http.get(url, headers: await _getHeaders());
-      _log(methodName,
-          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+  // static Future<List<PendingProductImport>> fetchPendingProductImports() async {
+  //   const methodName = 'fetchPendingProductImports';
+  //   final url = Uri.parse('$_baseUrl/show_latest_import_op_products');
+  //   _log(methodName, 'Calling API: $url');
+  //   try {
+  //     final res = await http.get(url, headers: await _getHeaders());
+  //     _log(methodName,
+  //         'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        if (data is List) {
-          _log(methodName, 'Response is a List, assuming no operations.');
-          return [];
-        }
-        if (data is Map<String, dynamic>) {
-          final operationsData = data['import_operations'];
-          if (operationsData is Map) {
-            final castedData = Map<String, dynamic>.from(operationsData);
-            return castedData.values
-                .map((opJson) => PendingProductImport.fromJson(
-                    opJson as Map<String, dynamic>))
-                .toList();
-          }
-        }
-      }
-      return [];
-    } catch (e) {
-      _log(methodName, 'EXCEPTION: $e');
-      throw Exception('Failed to load pending product imports: $e');
-    }
-  }
+  //     if (res.statusCode == 200) {
+  //       final data = jsonDecode(res.body);
+  //       if (data is List) {
+  //         _log(methodName, 'Response is a List, assuming no operations.');
+  //         return [];
+  //       }
+  //       if (data is Map<String, dynamic>) {
+  //         final operationsData = data['import_operations'];
+  //         if (operationsData is Map) {
+  //           final castedData = Map<String, dynamic>.from(operationsData);
+  //           return castedData.values
+  //               .map((opJson) => PendingProductImport.fromJson(
+  //                   opJson as Map<String, dynamic>))
+  //               .toList();
+  //         }
+  //       }
+  //     }
+  //     return [];
+  //   } catch (e) {
+  //     _log(methodName, 'EXCEPTION: $e');
+  //     throw Exception('Failed to load pending product imports: $e');
+  //   }
+  // }
 
   static Future<bool> acceptProductImport({
     required String importKey,
@@ -491,5 +493,226 @@ class ImportApi {
       _log(methodName, 'EXCEPTION: $e');
       return false;
     }
+  }
+
+  // static Future<List<PendingVehicleImport>> fetchPendingVehicleImports() async {
+  //   const methodName = 'fetchPendingVehicleImports';
+  //   final url = Uri.parse('$_baseUrl/show_latest_import_op_vehicles');
+  //   _log(methodName, 'Calling API: $url');
+  //   try {
+  //     final res = await http.get(url, headers: await _getHeaders());
+  //     _log(methodName,
+  //         'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+
+  //     if (res.statusCode == 200 || res.statusCode == 202) {
+  //       final data = jsonDecode(res.body);
+  //       if (data is List) {
+  //         _log(methodName, 'Response is a List, assuming no operations.');
+  //         return [];
+  //       }
+  //       if (data is Map<String, dynamic>) {
+  //         final operationsData = data['import_operations'];
+  //         if (operationsData is Map) {
+  //           final castedData = Map<String, dynamic>.from(operationsData);
+  //           return castedData.values
+  //               .map((opJson) => PendingVehicleImport.fromJson(
+  //                   opJson as Map<String, dynamic>))
+  //               .toList();
+  //         }
+  //       }
+  //     }
+  //     return [];
+  //   } catch (e) {
+  //     _log(methodName, 'EXCEPTION: $e');
+  //     throw Exception('Failed to load pending vehicle imports: $e');
+  //   }
+  // }
+
+// ✅ دالة جديدة لقبول عملية استيراد المركبات
+  static Future<bool> acceptVehicleImport({
+    required String importKey,
+    required String vehiclesKey,
+  }) async {
+    const methodName = 'acceptVehicleImport';
+    final url = Uri.parse('$_baseUrl/accept_import_op_vehicles');
+    final payload = {
+      "import_operation_key": importKey,
+      "vehicles_key": vehiclesKey,
+    };
+    _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
+    try {
+      final res = await http.post(url,
+          headers: await _getHeaders(), body: jsonEncode(payload));
+      _log(methodName, 'Response Status: ${res.statusCode}');
+      return res.statusCode == 202;
+    } catch (e) {
+      _log(methodName, 'EXCEPTION: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> rejectImportOperation({
+    required String importKey,
+    required String key, // استبدل storageKey بـ key ليكون أكثر عمومية
+  }) async {
+    // ... (نفس الكود، لكن مع تمرير key بدلاً من storageKey)
+    const methodName = 'rejectImportOperation';
+    final url = Uri.parse('$_baseUrl/reject_import_op');
+    final payload = {
+      "import_operation_key": importKey,
+      "key": key,
+    };
+    _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
+    try {
+      final res = await http.post(url,
+          headers: await _getHeaders(), body: jsonEncode(payload));
+      _log(methodName, 'Response Status: ${res.statusCode}');
+      return res.statusCode == 202;
+    } catch (e) {
+      _log(methodName, 'EXCEPTION: $e');
+      return false;
+    }
+  }
+// lib/services/import_api.dart
+// ... (الكود الموجود)
+
+  static Future<bool> createPendingVehicleImport({
+    required Supplier supplier,
+    required String location,
+    required double latitude,
+    required double longitude,
+    required List<ImportedVehicleInfo> vehicles,
+  }) async {
+    const methodName = 'createPendingVehicleImport';
+    final url = Uri.parse('$_baseUrl/create_import_op_vehicles');
+
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse(url.toString());
+      var request = http.MultipartRequest('POST', uri)
+        ..headers.addAll(headers)
+        ..fields['supplier_id'] = supplier.id.toString()
+        ..fields['location'] = location
+        ..fields['latitude'] = latitude.toString()
+        ..fields['longitude'] = longitude.toString();
+
+      for (int i = 0; i < vehicles.length; i++) {
+        final vehicle = vehicles[i];
+        request.fields['vehicles[$i][name]'] = vehicle.name;
+        request.fields['vehicles[$i][expiration]'] = vehicle.expiration;
+        request.fields['vehicles[$i][producted_in]'] = vehicle.productedIn;
+        request.fields['vehicles[$i][readiness]'] =
+            vehicle.readiness.toString();
+        request.fields['vehicles[$i][size_of_vehicle]'] = vehicle.sizeOfVehicle;
+        request.fields['vehicles[$i][capacity]'] = vehicle.capacity.toString();
+        request.fields['vehicles[$i][product_id]'] =
+            vehicle.product!.id.toString();
+        request.fields['vehicles[$i][place_type]'] = vehicle.placeType;
+        request.fields['vehicles[$i][place_id]'] = vehicle.placeId.toString();
+
+        // ✅ تعديل هنا: أرسل الحقول فقط إذا كانت موجودة، وتأكد من نوع البيانات
+        if (vehicle.location != null && vehicle.location!.isNotEmpty) {
+          request.fields['vehicles[$i][location]'] = vehicle.location!;
+        }
+        if (vehicle.latitude != null) {
+          request.fields['vehicles[$i][latitude]'] =
+              vehicle.latitude.toString();
+        }
+        if (vehicle.longitude != null) {
+          request.fields['vehicles[$i][longitude]'] =
+              vehicle.longitude.toString();
+        }
+      }
+
+      var res = await request.send();
+      final resBody = await res.stream.bytesToString();
+
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: $resBody');
+
+      if (res.statusCode == 201) {
+        _log(methodName, 'Success: Operation submitted.');
+        return true;
+      }
+
+      lastErrorMessage =
+          jsonDecode(resBody)['msg'] ?? 'Failed to submit operation';
+      _log(methodName, 'Error: $lastErrorMessage');
+      return false;
+    } catch (e) {
+      lastErrorMessage = 'An exception occurred in $methodName: $e';
+      _log(methodName, 'Exception: $lastErrorMessage');
+      return false;
+    }
+  }
+
+  static Future<List<PendingImportOperation>>
+      fetchPendingImportOperations() async {
+    const methodName = 'fetchPendingImportOperations';
+    final url = Uri.parse('$_baseUrl/show_latest_import_op_storage_media');
+    _log(methodName, 'Calling API: $url');
+    try {
+      final res = await http.get(url, headers: await _getHeaders());
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+
+      if (res.statusCode == 200 || res.statusCode == 202) {
+        final data = jsonDecode(res.body);
+        if (data is Map<String, dynamic> && data['imports'] is List) {
+          return (data['imports'] as List)
+              .map((opJson) => PendingImportOperation.fromJson(opJson))
+              .toList();
+        }
+      }
+    } catch (e) {
+      _log(methodName, 'EXCEPTION: $e');
+    }
+    return []; // ✅ في حالة الفشل أو عدم وجود بيانات، أعد قائمة فارغة
+  }
+
+  static Future<List<PendingProductImport>> fetchPendingProductImports() async {
+    const methodName = 'fetchPendingProductImports';
+    final url = Uri.parse('$_baseUrl/show_latest_import_op_products');
+    _log(methodName, 'Calling API: $url');
+    try {
+      final res = await http.get(url, headers: await _getHeaders());
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+
+      if (res.statusCode == 200 || res.statusCode == 202) {
+        final data = jsonDecode(res.body);
+        if (data is Map<String, dynamic> && data['import_operations'] is List) {
+          return (data['import_operations'] as List)
+              .map((opJson) => PendingProductImport.fromJson(opJson))
+              .toList();
+        }
+      }
+    } catch (e) {
+      _log(methodName, 'EXCEPTION: $e');
+    }
+    return []; // ✅ في حالة الفشل، أعد قائمة فارغة
+  }
+
+  static Future<List<PendingVehicleImport>> fetchPendingVehicleImports() async {
+    const methodName = 'fetchPendingVehicleImports';
+    final url = Uri.parse('$_baseUrl/show_live_import_op_vehicles');
+    _log(methodName, 'Calling API: $url');
+    try {
+      final res = await http.get(url, headers: await _getHeaders());
+      _log(methodName,
+          'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
+
+      if (res.statusCode == 200 || res.statusCode == 202) {
+        final data = jsonDecode(res.body);
+        if (data is Map<String, dynamic> && data['import_operations'] is List) {
+          return (data['import_operations'] as List)
+              .map((opJson) => PendingVehicleImport.fromJson(opJson))
+              .toList();
+        }
+      }
+    } catch (e) {
+      _log(methodName, 'EXCEPTION: $e');
+    }
+    return []; // ✅ في حالة الفشل، أعد قائمة فارغة
   }
 }
