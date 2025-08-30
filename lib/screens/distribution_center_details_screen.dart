@@ -63,11 +63,13 @@ class _DistributionCenterDetailsScreenState
             placeType: 'DistributionCenter',
             placeId: widget.center.id,
           ),
-          EmployeesScreen(
-            placeType: 'DistributionCenter',
-            placeId: widget.center.id,
+          // EmployeesScreen(
+          //   placeType: 'DistributionCenter',
+          //   placeId: widget.center.id,
+          // ),
+          _DcControlPanelTab(
+            center: widget.center,
           ),
-          const _DcControlPanelTab(),
         ],
       ),
     );
@@ -135,13 +137,13 @@ class _DcSectionsTabState extends State<_DcSectionsTab> {
   void initState() {
     super.initState();
     _sectionsFuture =
-        SectionApi.fetchSectionsByDistributionCenter(widget.center.id);
+        SectionApi.fetchSectionsByPlace('DistributionCenter', widget.center.id);
   }
 
   void _refresh() {
     setState(() {
-      _sectionsFuture =
-          SectionApi.fetchSectionsByDistributionCenter(widget.center.id);
+      _sectionsFuture = SectionApi.fetchSectionsByPlace(
+          'DistributionCenter', widget.center.id);
     });
   }
 
@@ -327,12 +329,169 @@ class _SectionCard extends StatelessWidget {
 
 // Tab 4: Control Panel
 class _DcControlPanelTab extends StatelessWidget {
-  const _DcControlPanelTab();
+  const _DcControlPanelTab({required this.center});
+
+  final DistributionCenter center;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('لوحة التحكم الخاصة بمركز التوزيع'),
+    final tiles = <_ActionTile>[
+      // 1. طلب منتجات
+      _ActionTile(
+        title: 'طلب منتجات',
+        subtitle: 'بدء عملية استيراد جديدة لهذا المركز',
+        icon: Icons.add_shopping_cart,
+        onTap: () {
+          // Navigator.of(context).push(
+          //   MaterialPageRoute(
+          //     builder: (_) => ProductImportWizard(
+          //       preselectedPlaceType: 'DistributionCenter',
+          //       preselectedPlaceId: center.id,
+          //     ),
+          //   ),
+          // );
+        },
+      ),
+      // 2. طلب وسائط تخزين
+      _ActionTile(
+        title: 'طلب وسائط تخزين',
+        subtitle: 'تحديد الوسيطة والكمية لهذا المركز',
+        icon: Icons.inventory_2_outlined,
+        onTap: () {
+          // Navigator.of(context).push(
+          //   MaterialPageRoute(
+          //     builder: (_) => StorageMediaImportWizard(
+          //       preselectedPlaceType: 'DistributionCenter',
+          //       preselectedPlaceId: center.id,
+          //     ),
+          //   ),
+          // );
+        },
+      ),
+      // 3. عرض الكراجات
+      _ActionTile(
+        title: 'عرض الكراجات',
+        subtitle: 'إدارة الكراجات الملحقة بهذا المركز',
+        icon: Icons.garage_outlined,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => GarageScreen(
+                placeType: 'DistributionCenter',
+                placeId: center.id,
+              ),
+            ),
+          );
+        },
+      ),
+      // 4. عرض الموظفين
+      _ActionTile(
+        title: 'عرض الموظفين',
+        subtitle: 'عرض وإدارة الموظفين في هذا المركز',
+        icon: Icons.people_outline,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => EmployeesScreen(
+                placeType: 'DistributionCenter',
+                placeId: center.id,
+              ),
+            ),
+          );
+        },
+      ),
+      // 5. السجلات الصادرة
+      _ActionTile(
+        title: 'السجلات الصادرة',
+        subtitle: 'عرض سجلات النقل الصادرة من هذا المركز',
+        icon: Icons.arrow_circle_up_outlined,
+        onTap: () {
+          // TODO: Navigate to outgoing records screen
+        },
+      ),
+      // 6. السجلات الواردة
+      _ActionTile(
+        title: 'السجلات الواردة',
+        subtitle: 'عرض سجلات النقل الواردة إلى هذا المركز',
+        icon: Icons.arrow_circle_down_outlined,
+        onTap: () {
+          // TODO: Navigate to incoming records screen
+        },
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: GridView.builder(
+        itemCount: tiles.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.4,
+        ),
+        itemBuilder: (_, i) => _ControlCard(tile: tiles[i]),
+      ),
+    );
+  }
+}
+
+class _ActionTile {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  _ActionTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+}
+
+class _ControlCard extends StatelessWidget {
+  const _ControlCard({required this.tile});
+  final _ActionTile tile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: tile.onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(tile.icon, size: 28, color: Theme.of(context).primaryColor),
+              const Spacer(),
+              Text(
+                tile.title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700, height: 1.25),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                tile.subtitle,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.black54),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -11,7 +11,8 @@ import 'package:warehouse/services/import_api.dart';
 
 // --- WIZARD CONTAINER (NO CHANGES) ---
 class StorageMediaImportWizard extends ConsumerStatefulWidget {
-  const StorageMediaImportWizard({super.key});
+  final int? preselectedWarehouseId;
+  const StorageMediaImportWizard(this.preselectedWarehouseId, {super.key});
 
   @override
   ConsumerState<StorageMediaImportWizard> createState() =>

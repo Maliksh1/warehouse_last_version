@@ -139,46 +139,74 @@ class GarageApi {
 
       if (res.statusCode == 200 || res.statusCode == 202) {
         final data = jsonDecode(res.body);
-        final garages = (data['data'] ?? data['garages'] ?? []) as List;
+        // تأكد من أن المفتاح 'garages' موجود قبل محاولة الوصول إليه
+        final garagesList = (data['garages'] as List?) ?? [];
+        return garagesList
+            .map((g) => GarageItem.fromJson(g as Map<String, dynamic>))
+            .toList();
+      }
+      // ✅ ---  هذا هو الحل ---
+      // إذا كانت الاستجابة 404، فهذا يعني "لا توجد بيانات"، وهي حالة صالحة.
+      // يجب أن نعيد قائمة فارغة بدلاً من رمي استثناء.
+      else if (res.statusCode == 404) {
         _log(methodName,
-            'Success: Fetched ${garages.length} garages for $placeType $placeId.');
-        return garages.map((g) => GarageItem.fromJson(g)).toList();
+            'Success: No garages found (404). Returning empty list.');
+        return []; // أعد قائمة فارغة
       } else {
-        lastErrorMessage =
-            'Failed to load garages for place. Status: ${res.statusCode}';
-        _log(methodName, 'Error: $lastErrorMessage');
-        throw Exception(lastErrorMessage);
+        // بالنسبة لباقي الأخطاء (500, 401, etc.)، قم برمي استثناء.
+        final data = jsonDecode(res.body);
+        lastErrorMessage = data['msg'] ?? 'Failed to load garages for place.';
+        throw Exception(
+            'Failed to load garages for place. Status: ${res.statusCode}');
       }
     } catch (e) {
-      lastErrorMessage = 'An exception occurred in $methodName: $e';
-      _log(methodName, 'Exception: $lastErrorMessage');
-      throw Exception(lastErrorMessage);
+      final errorMsg = 'An exception occurred in $methodName: $e';
+      _log(methodName, 'Exception: $errorMsg');
+      lastErrorMessage = errorMsg;
+      throw Exception(errorMsg);
     }
   }
 
-  static Future<bool> createGarage(Map<String, dynamic> payload) async {
+  static Future<bool> createGarage({
+    required String placeType,
+    required int placeId,
+    required String sizeOfVehicle,
+    required int maxCapacity,
+  }) async {
     const methodName = 'createGarage';
     final url = Uri.parse('$_base/create_new_garage');
-    _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
 
+    // ✅ ---  هذا هو التصحيح ---
+    // تم تغيير أسماء المفاتيح لتطابق الواجهة الخلفية
+    final payload = {
+      'existable_type': placeType,
+      'existable_id': placeId.toString(),
+      'size_of_vehicle': sizeOfVehicle,
+      'max_capacity': maxCapacity.toString(),
+    };
+
+    _log(methodName, 'Calling API: $url\nPayload: ${jsonEncode(payload)}');
     try {
-      final res = await http.post(url,
-          headers: await _getHeaders(), body: jsonEncode(payload));
+      final res = await http.post(
+        url,
+        headers: await _getHeaders(),
+        body: jsonEncode(payload),
+      );
       _log(methodName,
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
 
-      if (res.statusCode == 201) {
-        _log(methodName, 'Success: Garage created.');
+      if (res.statusCode == 201 || res.statusCode == 200) {
         return true;
       }
 
+      final data = jsonDecode(res.body);
       lastErrorMessage =
-          jsonDecode(res.body)['msg'] ?? 'Failed to create garage';
-      _log(methodName, 'Error: $lastErrorMessage');
+          data['msg'] ?? data['message'] ?? 'Failed to create garage.';
       return false;
     } catch (e) {
-      lastErrorMessage = 'An exception occurred in $methodName: $e';
-      _log(methodName, 'Exception: $lastErrorMessage');
+      final errorMsg = 'An exception occurred in $methodName: $e';
+      _log(methodName, 'Exception: $errorMsg');
+      lastErrorMessage = errorMsg;
       return false;
     }
   }
@@ -215,7 +243,7 @@ class GarageApi {
     _log(methodName, 'Calling API: $url');
 
     try {
-      final res = await http.delete(url, headers: await _getHeaders());
+      final res = await http.get(url, headers: await _getHeaders());
       _log(methodName,
           'Response Status: ${res.statusCode}\nResponse Body: ${res.body}');
 

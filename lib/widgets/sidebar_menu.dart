@@ -5,6 +5,7 @@ import 'package:warehouse/providers/locale_provider.dart';
 import 'package:warehouse/providers/navigation_provider.dart';
 import 'package:warehouse/services/auth_service.dart';
 import 'package:warehouse/screens/login_screen.dart';
+import 'package:warehouse/widgets/logout_sheet.dart';
 
 // This widget is the static sidebar content
 class SidebarMenu extends ConsumerWidget {
@@ -134,21 +135,18 @@ class SidebarMenu extends ConsumerWidget {
           const Divider(),
           // ✅ Logout مفعل
           ListTile(
-            leading: Icon(Icons.logout,
-                color:
-                    Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
-            title:
-                Text('Logout', style: Theme.of(context).textTheme.bodyMedium),
+            leading: const Icon(Icons.logout),
+            title: const Text('تسجيل الخروج'),
+            subtitle: const Text('إنهاء الجلسة الحالية'),
             onTap: () async {
-              // تنفيذ تسجيل الخروج
-              await ref.read(authServiceProvider).logout();
-              if (!context.mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
+              // مثال: لو عندك Riverpod وتريد إبطال المزودات بعد الخروج
+              await showLogoutSheet(context, onAfterLogout: () {
+                // ref.invalidate(authProvider); ref.invalidate(...);  // إن لزم
+                Navigator.of(context)
+                    .pushNamedAndRemoveUntil('/login', (r) => false);
+              });
             },
-          )
+          ),
         ],
       ),
     );

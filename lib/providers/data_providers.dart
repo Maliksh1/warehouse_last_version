@@ -168,8 +168,8 @@ final distributionCentersListProvider =
 final employeesListProvider =
     FutureProvider<List<Employee>>((ref) => fetchEmployees());
 
-final garageItemsListProvider =
-    FutureProvider<List<GarageItem>>((ref) => GarageApi.fetchAllGarages());
+// final garageItemsListProvider =
+//     FutureProvider<List<GarageItem>>((ref) => GarageApi.fetchAllGarages());
 
 final invoicesListProvider =
     FutureProvider<List<Invoice>>((ref) => fetchInvoices());
@@ -320,13 +320,13 @@ final warehouseOccupancyProvider =
     return list.map((w) => WarehouseOccupancyData(w.name)).toList();
   });
 });
-final garageItemsByPlaceProvider =
-    FutureProvider.family<List<GarageItem>, Map<String, dynamic>>(
-        (ref, params) {
-  final String placeType = params['placeType'] as String;
-  final int placeId = params['placeId'] as int;
-  return GarageApi.fetchGaragesForPlace(placeType, placeId);
-});
+// final garageItemsByPlaceProvider =
+//     FutureProvider.family<List<GarageItem>, Map<String, dynamic>>(
+//         (ref, params) {
+//   final String placeType = params['placeType'] as String;
+//   final int placeId = params['placeId'] as int;
+//   return GarageApi.fetchGaragesForPlace(placeType, placeId);
+// });
 
 @immutable
 class PlaceParameter {
@@ -455,6 +455,10 @@ class ProductImportNotifier extends StateNotifier<List<ImportedProductInfo>> {
   // إزالة منتج من القائمة
   void removeProduct(int productId) {
     state = state.where((p) => p.product.id != productId).toList();
+  }
+
+  void clearProducts() {
+    state = [];
   }
 
   // تحديث بيانات منتج معين
@@ -653,6 +657,38 @@ final placesListProvider =
   final distributionCenters =
       await ref.watch(distributionCentersListProvider.future);
   return [...warehouses, ...distributionCenters];
+});
+
+class GarageParameter {
+  final String placeType;
+  final int placeId;
+
+  const GarageParameter({required this.placeType, required this.placeId});
+
+  // Riverpod يستخدم هاتين الدالتين للمقارنة حسب القيمة
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GarageParameter &&
+          runtimeType == other.runtimeType &&
+          placeType == other.placeType &&
+          placeId == other.placeId;
+
+  @override
+  int get hashCode => placeType.hashCode ^ placeId.hashCode;
+}
+
+final garageItemsListProvider =
+    FutureProvider.autoDispose<List<GarageItem>>((ref) {
+  return GarageApi.fetchAllGarages();
+});
+
+// ✅ --- 2. تحديث الـ Provider ليستخدم الكلاس الجديد بدلاً من Map ---
+final garageItemsByPlaceProvider = FutureProvider.autoDispose
+    .family<List<GarageItem>, GarageParameter>((ref, params) {
+  // استخدام keepAlive يمنع إعادة التحميل عند التنقل السريع بين الشاشات
+  ref.keepAlive();
+  return GarageApi.fetchGaragesForPlace(params.placeType, params.placeId);
 });
 
 class WarehouseOccupancyData {

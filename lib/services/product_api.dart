@@ -43,8 +43,10 @@ class ProductApi {
       String placeType, int placeId) async {
     const methodName = 'fetchProductsForPlace';
     // لا حاجة للتحويل هنا، سيتم إرسال النوع الصحيح من الواجهة مباشرة
-    final uri =
-        Uri.parse('$_baseUrl/show_products_of_place/$placeType/$placeId');
+    // Normalize the place type to match backend model names (e.g. "Warehouse" or "DistributionCenter").
+    final normalizedPlaceType = _normalizePlaceType(placeType);
+    final uri = Uri.parse(
+        '$_baseUrl/show_products_of_place/$normalizedPlaceType/$placeId');
     _log(methodName, 'Calling API: $uri');
 
     try {
@@ -61,10 +63,7 @@ class ProductApi {
         _log(methodName,
             'Success: Fetched ${productList.length} products for $placeType $placeId.');
         return productList;
-      }
-      
-      
-       else {
+      } else {
         lastErrorMessage =
             jsonDecode(res.body)['msg'] ?? 'Failed to load products for place.';
         _log(methodName, 'Error: $lastErrorMessage');
@@ -76,6 +75,31 @@ class ProductApi {
       _log(methodName, 'Exception: $lastErrorMessage');
       throw Exception(lastErrorMessage);
     }
+  }
+
+  /// Normalizes a place type string into a canonical model class name expected by the backend.
+  ///
+  /// Example inputs and outputs:
+  /// - "warehouse" -> "Warehouse"
+  /// - "DistributionCenter" -> "DistributionCenter"
+  /// - "distribution_center" -> "DistributionCenter"
+  /// - "distribution center" -> "DistributionCenter"
+  static String _normalizePlaceType(String type) {
+    if (type.isEmpty) return type;
+    // Replace underscores, hyphens and other non-letter chars with space
+    final cleaned = type
+        .replaceAll(RegExp(r'[^A-Za-z]+'), ' ')
+        .trim()
+        .split(' ')
+        .where((s) => s.isNotEmpty)
+        .toList();
+    // Capitalize each part and join
+    final capitalized = cleaned
+        .map((p) => p.isNotEmpty
+            ? p[0].toUpperCase() + p.substring(1).toLowerCase()
+            : p)
+        .join();
+    return capitalized;
   }
 
   static Future<bool> supportNewProduct(SupportedProductRequest req) async {

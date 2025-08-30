@@ -1,4 +1,5 @@
 import 'package:warehouse/models/product.dart';
+import 'package:warehouse/models/warehouse.dart';
 
 /// يمثل منتجًا تم استيراده إلى قسم معين في مستودع
 class ImportedProduct {
@@ -9,6 +10,7 @@ class ImportedProduct {
   final double pricePerUnit;
   final double quantity;
   final String warehouseId;
+  String specialDescription;
   final String sectionId;
 
   ImportedProduct({
@@ -20,6 +22,7 @@ class ImportedProduct {
     required this.quantity,
     required this.warehouseId,
     required this.sectionId,
+    this.specialDescription = '',
   });
 
   factory ImportedProduct.fromJson(Map<String, dynamic> json) {
@@ -44,6 +47,7 @@ class ImportedProduct {
       'pricePerUnit': pricePerUnit,
       'quantity': quantity,
       'warehouseId': warehouseId,
+      'special_description': specialDescription,
       'sectionId': sectionId,
     };
   }
@@ -68,5 +72,25 @@ class ImportedProduct {
       warehouseId: warehouseId ?? this.warehouseId,
       sectionId: sectionId ?? this.sectionId,
     );
+  }
+}
+
+class ProductDistributionInfo {
+  final Warehouse warehouse;
+  double load;
+  bool sendVehicles;
+
+  ProductDistributionInfo({
+    required this.warehouse,
+    this.load = 0.0,
+    this.sendVehicles = false,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'warehouse_id': warehouse.id,
+      'load': load,
+      'send_vehicles': sendVehicles,
+    };
   }
 }

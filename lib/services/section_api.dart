@@ -174,6 +174,46 @@ class SectionApi {
     return false;
   }
 
+  static Future<List<WarehouseSection>> fetchSectionsByPlace(
+      String placeType, int placeId) async {
+    final url = Uri.parse('$_base/show_sections_on_place/$placeType/$placeId');
+
+    if (kDebugMode) debugPrint('[SectionApi] GET $url');
+    final res = await http.get(url, headers: await _headers());
+
+    Map<String, dynamic>? json;
+    try {
+      json = res.body.isNotEmpty
+          ? jsonDecode(res.body) as Map<String, dynamic>
+          : null;
+    } catch (_) {}
+
+    if (kDebugMode) {
+      debugPrint('[SectionApi] status: ${res.statusCode}');
+      debugPrint('[SectionApi] body  : ${res.body}');
+    }
+
+    if (res.statusCode == 202) {
+      final raw = (json?['sections'] as List?) ?? <dynamic>[];
+      return raw
+          .whereType<Map<String, dynamic>>()
+          .map(WarehouseSection.fromJson)
+          .toList();
+    }
+
+    if (res.statusCode == 404) {
+      final msg = (json?['msg']?.toString() ?? '').toLowerCase();
+      // حالتان شائعتان من الباك: لا توجد أقسام، أو خطأ num_floors على null
+      if (msg.contains('no sections') ||
+          msg.contains('there are no sections') ||
+          msg.contains('num_floors')) {
+        return <WarehouseSection>[];
+      }
+    }
+
+    throw Exception(json?['msg'] ?? 'Failed to load sections');
+  }
+
 // لو عندك fetchSectionsByWarehouse هنا، تأكد من قبول 200/202 (انظر القسم 3 أدناه)
 
   Future<List<WarehouseSection>> fetchSectionsByWarehouse(

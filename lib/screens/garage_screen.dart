@@ -1,13 +1,13 @@
-// lib/screens/garage_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/models/garage_item.dart';
 import 'package:warehouse/providers/data_providers.dart';
 import 'package:warehouse/screens/garage_details_screen.dart';
+import 'package:warehouse/services/garage_api.dart';
 import 'package:warehouse/widgets/Dialogs/add_garage_dialog.dart';
+import 'package:warehouse/widgets/Dialogs/edit_garage_dialog.dart'; // ✅ إضافة مهمة
 
 class GarageScreen extends ConsumerWidget {
-  // --- 1. جعل المتغيرات اختيارية ---
   final String? placeType;
   final int? placeId;
 
@@ -17,19 +17,92 @@ class GarageScreen extends ConsumerWidget {
     this.placeId,
   });
 
+  // ✅ دالة مساعدة لتشغيل حوار الإضافة
+  void _addGarage(BuildContext context, WidgetRef ref) async {
+    final success = await showAddGarageDialog(
+      context,
+      ref,
+      preselectedPlaceType: placeType,
+      preselectedPlaceId: placeId,
+    );
+
+    if (context.mounted && (success ?? false)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Garage added successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  // ✅ دالة مساعدة لتشغيل حوار التعديل
+  void _editGarage(BuildContext context, WidgetRef ref, GarageItem garage) async {
+     final success = await showEditGarageDialog(context, ref, garage);
+     
+     if (context.mounted && (success ?? false)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Garage updated successfully!'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+     }
+  }
+
+
+  // ✅ دالة مساعدة لتشغيل حوار الحذف
+  void _deleteGarage(BuildContext context, WidgetRef ref, GarageItem garage) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Deletion'),
+        content: Text('Are you sure you want to delete Garage ID: ${garage.id}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      final success = await GarageApi.deleteGarage(garage.id);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Garage deleted successfully!' : GarageApi.lastErrorMessage ?? 'Failed to delete garage.'),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+
+      if (success) {
+          if (placeType != null && placeId != null) {
+              ref.invalidate(garageItemsByPlaceProvider(GarageParameter(placeType: placeType!, placeId: placeId!)));
+          } else {
+              ref.invalidate(garageItemsListProvider);
+          }
+      }
+    }
+  }
+
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // --- 2. تحديد ما إذا كانت الشاشة في وضع العرض المفلتر أم العام ---
     final bool isFilteredView = placeType != null && placeId != null;
 
-    // --- 3. اختيار الـ Provider المناسب بناءً على وضع العرض ---
     final garagesAsyncValue = isFilteredView
         ? ref.watch(garageItemsByPlaceProvider(
-            {'placeType': placeType!, 'placeId': placeId!}))
+            GarageParameter(placeType: placeType!, placeId: placeId!)))
         : ref.watch(garageItemsListProvider);
 
     return Scaffold(
-      // --- 4. تعديل العنوان ليكون ديناميكياً ---
       appBar: AppBar(
         title: Text(isFilteredView ? 'Garages' : 'All Garages'),
         actions: [
@@ -37,10 +110,10 @@ class GarageScreen extends ConsumerWidget {
             icon: const Icon(Icons.refresh),
             onPressed: () {
               if (isFilteredView) {
-                ref.refresh(garageItemsByPlaceProvider(
-                    {'placeType': placeType!, 'placeId': placeId!}));
+                ref.invalidate(garageItemsByPlaceProvider(
+                    GarageParameter(placeType: placeType!, placeId: placeId!)));
               } else {
-                ref.refresh(garageItemsListProvider);
+                ref.invalidate(garageItemsListProvider);
               }
             },
           ),
@@ -56,10 +129,10 @@ class GarageScreen extends ConsumerWidget {
           return RefreshIndicator(
             onRefresh: () async {
               if (isFilteredView) {
-                ref.refresh(garageItemsByPlaceProvider(
-                    {'placeType': placeType!, 'placeId': placeId!}));
+                 ref.invalidate(garageItemsByPlaceProvider(
+                    GarageParameter(placeType: placeType!, placeId: placeId!)));
               } else {
-                ref.refresh(garageItemsListProvider);
+                ref.invalidate(garageItemsListProvider);
               }
             },
             child: ListView.builder(
@@ -69,10 +142,26 @@ class GarageScreen extends ConsumerWidget {
                 return Card(
                   margin: const EdgeInsets.all(8.0),
                   child: ListTile(
+                    leading: const Icon(Icons.warehouse_rounded),
                     title: Text('Garage ID: ${garage.id}'),
                     subtitle: Text(
-                        'Location: ${garage.location}\nPlace: ${garage.placeType} ${garage.placeId}'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
+                        'Vehicle Size: ${garage.sizeOfVehicle}\nCapacity: ${garage.currentVehicles} / ${garage.maxCapacity}'),
+                    // ✅ ---  هنا التعديل الرئيسي ---
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                          tooltip: 'Edit Garage',
+                          onPressed: () => _editGarage(context, ref, garage),
+                        ),
+                        IconButton(
+                           icon: const Icon(Icons.delete_outline, color: Colors.red),
+                           tooltip: 'Delete Garage',
+                           onPressed: () => _deleteGarage(context, ref, garage),
+                        ),
+                      ],
+                    ),
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -90,24 +179,12 @@ class GarageScreen extends ConsumerWidget {
           );
         },
       ),
-      // --- 5. إظهار زر الإضافة فقط في وضع العرض العام ---
-      // floatingActionButton: isFilteredView
-      //     ? null
-      //     : FloatingActionButton(
-      //         heroTag: 'garageScreen',
-      //         onPressed: () async {
-      //           final success = await showAddGarageDialog(context, ref);
-      //           if (context.mounted && success) {
-      //             ScaffoldMessenger.of(context).showSnackBar(
-      //               const SnackBar(
-      //                 content: Text('Garage added successfully!'),
-      //                 backgroundColor: Colors.green,
-      //               ),
-      //             );
-      //           }
-      //         },
-      //         child: const Icon(Icons.add),
-      //       ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'addGarageFab',
+        onPressed: () => _addGarage(context, ref),
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
+

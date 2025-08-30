@@ -1,16 +1,17 @@
-// lib/screens/wizards/product_import_wizard.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:warehouse/models/pending_product_import.dart';
 import 'package:warehouse/models/product.dart';
 import 'package:warehouse/models/supplier.dart';
+import 'package:warehouse/models/warehouse.dart';
 import 'package:warehouse/providers/data_providers.dart';
 import 'package:warehouse/services/import_api.dart';
 
 // --- WIZARD CONTAINER ---
 class ProductImportWizard extends ConsumerStatefulWidget {
-  const ProductImportWizard({super.key});
+  final int? preselectedWarehouseId;
+  const ProductImportWizard({super.key, this.preselectedWarehouseId});
 
   @override
   ConsumerState<ProductImportWizard> createState() =>
@@ -22,6 +23,14 @@ class _ProductImportWizardState extends ConsumerState<ProductImportWizard> {
   int _currentPage = 0;
   Supplier? _selectedSupplier;
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // ✅ تنظيف الحالة عند بدء المعالج لضمان عدم وجود بيانات قديمة
+    Future.microtask(
+        () => ref.read(productImportWizardProvider.notifier).clearProducts());
+  }
 
   void _nextPage() {
     if (_currentPage < 1) {
@@ -39,7 +48,6 @@ class _ProductImportWizardState extends ConsumerState<ProductImportWizard> {
     setState(() => _isSubmitting = true);
     final selectedProducts = ref.read(productImportWizardProvider);
 
-    // Basic validation
     if (selectedProducts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Please add at least one product.'),
@@ -47,6 +55,21 @@ class _ProductImportWizardState extends ConsumerState<ProductImportWizard> {
       ));
       setState(() => _isSubmitting = false);
       return;
+    }
+
+    // ✅ التحقق من أن جميع المنتجات لديها كميات توزيع
+    for (var product in selectedProducts) {
+      final totalDistributed =
+          product.distribution.fold<double>(0, (sum, dist) => sum + dist.load);
+      if (totalDistributed <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Please specify a distribution quantity for "${product.product.name}".'),
+          backgroundColor: Colors.orange,
+        ));
+        setState(() => _isSubmitting = false);
+        return;
+      }
     }
 
     final success = await ImportApi.createPendingProductImport(
@@ -60,8 +83,8 @@ class _ProductImportWizardState extends ConsumerState<ProductImportWizard> {
         backgroundColor: success ? Colors.green : Colors.red,
       ));
       if (success) {
-        // Optionally refresh pending product imports list if you have one
-        // ref.invalidate(pendingProductImportsProvider);
+        // تحديث قائمة العمليات المعلقة بعد الإرسال الناجح
+        ref.invalidate(allPendingOperationsProvider);
         Navigator.of(context).pop();
       } else {
         setState(() => _isSubmitting = false);
@@ -80,6 +103,8 @@ class _ProductImportWizardState extends ConsumerState<ProductImportWizard> {
         supplier: _selectedSupplier,
         onSubmit: _submit,
         isSubmitting: _isSubmitting,
+        // ✅ تمرير معرّف المستودع إلى الخطوة الثانية
+        preselectedWarehouseId: widget.preselectedWarehouseId,
       ),
     ];
 
@@ -133,11 +158,13 @@ class _Step2ManageProducts extends ConsumerWidget {
   final Supplier? supplier;
   final Future<void> Function() onSubmit;
   final bool isSubmitting;
+  final int? preselectedWarehouseId; // ✅ استقبال معرّف المستودع
 
   const _Step2ManageProducts(
       {required this.supplier,
       required this.onSubmit,
-      required this.isSubmitting});
+      required this.isSubmitting,
+      required this.preselectedWarehouseId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -159,12 +186,14 @@ class _Step2ManageProducts extends ConsumerWidget {
             child: selectedProducts.isEmpty
                 ? const Center(child: Text('No products added yet.'))
                 : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(
-                        8, 8, 8, 80), // Padding at bottom for FAB
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
                     itemCount: selectedProducts.length,
                     itemBuilder: (context, index) {
                       return _ImportedProductCard(
-                          productInfo: selectedProducts[index]);
+                        productInfo: selectedProducts[index],
+                        // ✅ تمرير المعرّف للكارد
+                        preselectedWarehouseId: preselectedWarehouseId,
+                      );
                     },
                   ),
           ),
@@ -197,7 +226,6 @@ class _Step2ManageProducts extends ConsumerWidget {
       BuildContext context, WidgetRef ref, Supplier supplier) {
     showDialog(
       context: context,
-      // استخدام ConsumerBuilder لتوفير ref داخل مربع الحوار
       builder: (context) => Consumer(
         builder: (context, ref, child) {
           final productsAsync =
@@ -208,19 +236,7 @@ class _Step2ManageProducts extends ConsumerWidget {
               .toSet();
 
           return AlertDialog(
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Select a Product'),
-                // ✅ زر التحديث
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: () =>
-                      ref.invalidate(productsForSupplierProvider(supplier.id)),
-                  tooltip: 'Refresh Products',
-                )
-              ],
-            ),
+            title: const Text('Select a Product'),
             content: SizedBox(
               width: double.maxFinite,
               child: productsAsync.when(
@@ -233,7 +249,7 @@ class _Step2ManageProducts extends ConsumerWidget {
                   if (availableProducts.isEmpty) {
                     return const Center(
                         child: Text(
-                            'All products from this supplier have been added or none are available.'));
+                            'All available products from this supplier have been added.'));
                   }
                   return ListView.builder(
                     shrinkWrap: true,
@@ -243,13 +259,41 @@ class _Step2ManageProducts extends ConsumerWidget {
                       return ListTile(
                         title: Text(product.name),
                         onTap: () async {
-                          final warehouses = await ref.read(
-                              warehousesForProductProvider(
-                                      int.parse(product.id))
-                                  .future);
+                          // ✅ --- المنطق الجديد والمحسن ---
+                          final productId = int.tryParse(product.id);
+                          if (productId == null) return; // حماية
+
+                          final allWarehouses = await ref.read(
+                              warehousesForProductProvider(productId).future);
+
+                          List<Warehouse> warehousesForDistribution;
+
+                          if (preselectedWarehouseId != null) {
+                            // إذا كان هناك مستودع محدد، قم بتصفيته
+                            warehousesForDistribution = allWarehouses
+                                .where((w) => w.id == preselectedWarehouseId)
+                                .toList();
+
+                            // تحقق إذا كان المستودع المحدد متوافقًا
+                            if (warehousesForDistribution.isEmpty &&
+                                context.mounted) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                content: Text(
+                                    '"${product.name}" is not compatible with the selected warehouse.'),
+                                backgroundColor: Colors.orange,
+                              ));
+                              Navigator.of(context).pop();
+                              return; // لا تقم بإضافة المنتج
+                            }
+                          } else {
+                            // إذا لم يكن هناك تحديد مسبق، استخدم كل المستودعات المتوافقة
+                            warehousesForDistribution = allWarehouses;
+                          }
+
                           ref
                               .read(productImportWizardProvider.notifier)
-                              .addProduct(product, warehouses);
+                              .addProduct(product, warehousesForDistribution);
                           Navigator.of(context).pop();
                         },
                       );
@@ -273,7 +317,10 @@ class _Step2ManageProducts extends ConsumerWidget {
 // --- CARD FOR EACH IMPORTED PRODUCT ---
 class _ImportedProductCard extends ConsumerWidget {
   final ImportedProductInfo productInfo;
-  const _ImportedProductCard({required this.productInfo});
+  final int? preselectedWarehouseId; // ✅ استقبال معرّف المستودع
+
+  const _ImportedProductCard(
+      {required this.productInfo, this.preselectedWarehouseId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -288,10 +335,13 @@ class _ImportedProductCard extends ConsumerWidget {
         title: Text(productInfo.product.name,
             style: const TextStyle(fontWeight: FontWeight.bold)),
         trailing: IconButton(
-          icon: const Icon(Icons.delete_outline, color: Colors.red),
-          onPressed: () =>
-              notifier.removeProduct(int.parse(productInfo.product.id)),
-        ),
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+            onPressed: () {
+              final productId = int.tryParse(productInfo.product.id);
+              if (productId != null) {
+                notifier.removeProduct(productId);
+              }
+            }),
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -322,6 +372,7 @@ class _ImportedProductCard extends ConsumerWidget {
                   currentValue: productInfo.expirationDate,
                   onChanged: (val) => productInfo.expirationDate = val,
                 ),
+                // ✅ ---  هنا الإضافة المطلوبة ---
                 _buildTextField(
                     label: 'Special Description',
                     initialValue: productInfo.specialDescription,
@@ -332,15 +383,22 @@ class _ImportedProductCard extends ConsumerWidget {
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 if (productInfo.distribution.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Text(
-                        'No compatible warehouses found for this product.',
-                        style: TextStyle(color: Colors.grey)),
+                      preselectedWarehouseId != null
+                          ? 'This product is not compatible with the selected warehouse.'
+                          : 'No compatible warehouses found for this product.',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
                   )
                 else
                   ...productInfo.distribution.map((dist) {
-                    return _DistributionRow(distributionInfo: dist);
+                    return _DistributionRow(
+                      distributionInfo: dist,
+                      // ✅ اجعل الصف للقراءة فقط إذا كان المستودع محددًا مسبقًا
+                      isReadOnly: preselectedWarehouseId != null,
+                    );
                   }).toList(),
               ],
             ),
@@ -350,6 +408,7 @@ class _ImportedProductCard extends ConsumerWidget {
     );
   }
 
+  // ... (دوال بناء الحقول تبقى كما هي)
   Widget _buildTextField(
       {required String label,
       required String initialValue,
@@ -408,7 +467,9 @@ class _ImportedProductCard extends ConsumerWidget {
 
 class _DistributionRow extends StatefulWidget {
   final ProductDistributionInfo distributionInfo;
-  const _DistributionRow({required this.distributionInfo});
+  final bool isReadOnly; // ✅ متغير جديد للتحكم
+  const _DistributionRow(
+      {required this.distributionInfo, this.isReadOnly = false});
 
   @override
   State<_DistributionRow> createState() => _DistributionRowState();
@@ -439,8 +500,15 @@ class _DistributionRowState extends State<_DistributionRow> {
         children: [
           Expanded(
               flex: 3,
-              child: Text(widget.distributionInfo.warehouse.name,
-                  overflow: TextOverflow.ellipsis)),
+              child: Text(
+                widget.distributionInfo.warehouse.name,
+                overflow: TextOverflow.ellipsis,
+                // ✅ تمييز بصري إذا كان للقراءة فقط
+                style: TextStyle(
+                  color: widget.isReadOnly ? Colors.grey.shade700 : null,
+                  fontStyle: widget.isReadOnly ? FontStyle.italic : null,
+                ),
+              )),
           const SizedBox(width: 8),
           Expanded(
             flex: 2,

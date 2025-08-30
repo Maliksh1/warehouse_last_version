@@ -1,4 +1,3 @@
-// lib/widgets/Dialogs/add_garage_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse/models/distribution_center.dart';
@@ -6,26 +5,50 @@ import 'package:warehouse/models/warehouse.dart';
 import 'package:warehouse/providers/data_providers.dart';
 import 'package:warehouse/services/garage_api.dart';
 
-/// تعرض سلسلة من الحوارات لإضافة كراج جديد باستخدام Riverpod.
+/// تعرض سلسلة من الحوارات لإضافة كراج جديد.
 ///
-/// The main function now requires a BuildContext and a WidgetRef.
-Future<bool> showAddGarageDialog(BuildContext context, WidgetRef ref) async {
-  // المرحلة الأولى: اختيار نوع المكان
-  final String? placeType = await _showSelectPlaceTypeDialog(context);
-  if (placeType == null) return false; // تم الإلغاء
+/// يمكنها الآن تخطي خطوات الاختيار إذا تم توفير مكان محدد مسبقًا.
+Future<bool?> showAddGarageDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  String? preselectedPlaceType,
+  int? preselectedPlaceId,
+}) async {
+  String? finalPlaceType = preselectedPlaceType;
+  int? finalPlaceId = preselectedPlaceId;
 
-  // المرحلة الثانية: اختيار المكان المحدد
-  final int? placeId =
-      await _showSelectPlaceInstanceDialog(context, ref, placeType);
-  if (placeId == null) return false; // تم الإلغاء
+  // إذا لم يكن المكان محددًا مسبقًا، قم بتشغيل خطوات الاختيار
+  if (finalPlaceType == null || finalPlaceId == null) {
+    // المرحلة الأولى: اختيار نوع المكان
+    finalPlaceType = await _showSelectPlaceTypeDialog(context);
+    if (finalPlaceType == null) return false; // تم الإلغاء
 
-  // المرحلة الثالثة: إدخال التفاصيل وإنشاء الكراج
-  final bool? success =
-      await _showCreateGarageDetailsDialog(context, ref, placeType, placeId);
-  return success ?? false;
+    // المرحلة الثانية: اختيار المكان المحدد
+    finalPlaceId =
+        await _showSelectPlaceInstanceDialog(context, ref, finalPlaceType);
+    if (finalPlaceId == null) return false; // تم الإلغاء
+  }
+
+  // المرحلة الثالثة: إدخال التفاصيل وإنشاء الكراج (تعمل لكلا الحالتين)
+  final bool? success = await _showCreateGarageDetailsDialog(
+      context, ref, finalPlaceType, finalPlaceId);
+
+  // تحديث القائمة الصحيحة بعد الإضافة
+  if (success == true) {
+    if (preselectedPlaceId != null && preselectedPlaceType != null) {
+      // تحديث القائمة المفلترة
+      ref.invalidate(garageItemsByPlaceProvider(GarageParameter(
+          placeType: preselectedPlaceType, placeId: preselectedPlaceId)));
+    } else {
+      // تحديث القائمة العامة
+      ref.invalidate(garageItemsListProvider);
+    }
+  }
+
+  return success;
 }
 
-// الحوار الخاص بالمرحلة الأولى: اختيار نوع المكان (لا يتغير)
+// الحوار الخاص بالمرحلة الأولى: اختيار نوع المكان
 Future<String?> _showSelectPlaceTypeDialog(BuildContext context) {
   return showDialog<String>(
     context: context,
@@ -35,23 +58,23 @@ Future<String?> _showSelectPlaceTypeDialog(BuildContext context) {
       actions: [
         TextButton(
           child: const Text('Warehouse'),
-          onPressed: () => Navigator.of(ctx).pop('warehouse'),
+          onPressed: () =>
+              Navigator.of(ctx).pop('Warehouse'), // ✅ تم التصحيح إلى اسم الكلاس
         ),
         TextButton(
           child: const Text('Distribution Center'),
-          onPressed: () => Navigator.of(ctx).pop('distribution_center'),
+          onPressed: () => Navigator.of(ctx)
+              .pop('DistributionCenter'), // ✅ تم التصحيح إلى اسم الكلاس
         ),
       ],
     ),
   );
 }
 
-// الحوار الخاص بالمرحلة الثانية: اختيار المستودع أو مركز التوزيع (مُعدَّل لـ Riverpod)
+// الحوار الخاص بالمرحلة الثانية: اختيار المستودع أو مركز التوزيع
 Future<int?> _showSelectPlaceInstanceDialog(
     BuildContext context, WidgetRef ref, String placeType) {
-  // --- هنا التصحيح الرئيسي ---
-  // تحديد النوع بشكل صريح ليتمكن المترجم من فهمه
-  final dynamic provider = placeType == 'warehouse'
+  final provider = placeType == 'Warehouse'
       ? warehousesProvider
       : distributionCentersListProvider;
 
@@ -61,12 +84,9 @@ Future<int?> _showSelectPlaceInstanceDialog(
       title: Text('Select a ${placeType.replaceAll('_', ' ')}'),
       content: SizedBox(
         width: double.maxFinite,
-        // استخدام Consumer لقراءة حالة الـ provider
         child: Consumer(
           builder: (context, ref, child) {
-            // الآن سيعمل هذا السطر بدون مشاكل
             final asyncValue = ref.watch(provider);
-            // التعامل مع حالات التحميل والخطأ والبيانات
             return asyncValue.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, stack) => Center(child: Text('Error: $err')),
@@ -79,9 +99,9 @@ Future<int?> _showSelectPlaceInstanceDialog(
                   itemCount: items.length,
                   itemBuilder: (lCtx, i) {
                     final item = items[i];
-                    // --- تصحيح ثانوي: تحديد النوع int بشكل مباشر ---
+                    // ✅ --- تصحيح منطق استخلاص ID والاسم ---
                     final int id = (item is Warehouse)
-                        ? int.parse(item.id as String)
+                        ? item.id
                         : (item as DistributionCenter).id;
                     final String name = (item is Warehouse)
                         ? item.name
@@ -108,11 +128,16 @@ Future<int?> _showSelectPlaceInstanceDialog(
   );
 }
 
-// الحوار الخاص بالمرحلة الثالثة: إدخال تفاصيل الكراج (مُعدَّل لـ Riverpod)
+// الحوار الخاص بالمرحلة الثالثة: إدخال تفاصيل الكراج
 Future<bool?> _showCreateGarageDetailsDialog(
     BuildContext context, WidgetRef ref, String placeType, int placeId) {
-  final locationController = TextEditingController();
+  String? selectedSize;
+  final capacityController = TextEditingController();
   final formKey = GlobalKey<FormState>();
+
+  // ✅ ---  هذا هو التصحيح ---
+  // قائمة الأحجام المسموح بها من قبل الخادم
+  final List<String> vehicleSizes = ['medium', 'big'];
 
   return showDialog<bool>(
     context: context,
@@ -120,15 +145,42 @@ Future<bool?> _showCreateGarageDetailsDialog(
       title: const Text('New Garage Details'),
       content: Form(
         key: formKey,
-        child: TextFormField(
-          controller: locationController,
-          decoration: const InputDecoration(labelText: 'Garage Location'),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Please enter a location.';
-            }
-            return null;
-          },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              value: selectedSize,
+              hint: const Text('Select Vehicle Size'),
+              items: vehicleSizes.map((String size) {
+                return DropdownMenuItem<String>(
+                  value: size,
+                  child: Text(size.capitalize()),
+                );
+              }).toList(),
+              onChanged: (newValue) {
+                selectedSize = newValue;
+              },
+              validator: (value) {
+                if (value == null) {
+                  return 'Please select a vehicle size.';
+                }
+                return null;
+              },
+            ),
+            TextFormField(
+              controller: capacityController,
+              decoration: const InputDecoration(labelText: 'Max Capacity'),
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null ||
+                    value.trim().isEmpty ||
+                    int.tryParse(value) == null) {
+                  return 'Please enter a valid number.';
+                }
+                return null;
+              },
+            ),
+          ],
         ),
       ),
       actions: [
@@ -140,17 +192,12 @@ Future<bool?> _showCreateGarageDetailsDialog(
           child: const Text('Add'),
           onPressed: () async {
             if (formKey.currentState!.validate()) {
-              final success = await GarageApi.createGarage({
-                'location': locationController.text,
-                'place_type': placeType,
-                'place_id': placeId,
-              });
-
-              if (success) {
-                // عند النجاح، نقوم بتحديث قائمة الكراجات
-                ref.refresh(garageItemsListProvider);
-              }
-
+              final success = await GarageApi.createGarage(
+                placeType: placeType,
+                placeId: placeId,
+                sizeOfVehicle: selectedSize!,
+                maxCapacity: int.parse(capacityController.text),
+              );
               if (ctx.mounted) Navigator.of(ctx).pop(success);
             }
           },
@@ -158,4 +205,11 @@ Future<bool?> _showCreateGarageDetailsDialog(
       ],
     ),
   );
+}
+
+// دالة مساعدة لجعل الحرف الأول كبيراً (لتحسين العرض)
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
+  }
 }

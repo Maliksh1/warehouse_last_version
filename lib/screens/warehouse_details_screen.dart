@@ -1,7 +1,9 @@
 // lib/screens/warehouse_details_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:warehouse/models/transfer.dart';
 import 'package:warehouse/screens/send_products_screen.dart';
+import 'package:warehouse/screens/wizards/product_import_wizard.dart';
 import 'package:warehouse/widgets/send_products_card.dart';
 import 'package:warehouse/models/transfer_request.dart';
 
@@ -25,6 +27,7 @@ import 'package:warehouse/services/warehouse_api.dart';
 // حوارات إضافة/تعديل قسم
 import 'package:warehouse/widgets/Dialogs/add_section_dialog.dart';
 import 'package:warehouse/widgets/Dialogs/edit_section_dialog.dart';
+import 'package:warehouse/widgets/transfer_logs_card.dart';
 
 class WarehouseDetailScreen extends ConsumerStatefulWidget {
   final Warehouse warehouse;
@@ -860,9 +863,18 @@ class _ControlPanelTab extends StatelessWidget {
       _ActionTile(
         no: 1,
         title: 'طلب منتجات من الشركة',
-        subtitle: 'اقتراح فائض أو استيراد جديد',
+        subtitle: 'بدء عملية استيراد جديدة لهذا المستودع',
         icon: Icons.add_shopping_cart,
-        onTap: () {},
+        onTap: () {
+          // عند الضغط، انتقل إلى معالج الاستيراد ومرر معرّف المستودع
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (ctx) => ProductImportWizard(
+                preselectedWarehouseId: warehouse.id,
+              ),
+            ),
+          );
+        },
       ),
       _ActionTile(
         no: 2,
@@ -898,12 +910,19 @@ class _ControlPanelTab extends StatelessWidget {
         },
       ),
       _ActionTile(
-        no: 4,
-        title: 'سجلات النقل',
-        subtitle: 'قادمة وصادرة ضمن مدة',
-        icon: Icons.local_shipping_outlined,
-        onTap: () {},
-      ),
+          no: 4,
+          title: 'سجلات النقل',
+          subtitle: 'قادمة وصادرة ضمن مدة',
+          icon: Icons.local_shipping_outlined,
+          onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (ctx) => TransferLogsCard(
+                    type: TransferLogType.outgoing,
+                    placeType: 'Warehouse',
+                    placeId: wid)));
+
+            SizedBox(height: 12);
+          }),
       _ActionTile(
         no: 5,
         title: 'إرسال منتجات لمركز توزيع',
@@ -920,10 +939,16 @@ class _ControlPanelTab extends StatelessWidget {
       ),
       _ActionTile(
         no: 6,
-        title: 'طلب وسائط تخزين',
-        subtitle: 'تحديد الوسيطة وكميتها',
+        title: '  سجلات النقل الواردات',
+        subtitle: '  سجل الواردات وتفاصيله',
         icon: Icons.inventory_2_outlined,
-        onTap: () {},
+        onTap: () {
+          Navigator.of(context).push(MaterialPageRoute(
+              builder: (ctx) => TransferLogsCard(
+                  type: TransferLogType.incoming,
+                  placeType: 'Warehouse',
+                  placeId: wid)));
+        },
       ),
       // **[NEW]** Garage Card
       _ActionTile(

@@ -6,6 +6,7 @@ import 'package:warehouse/models/warehouse.dart';
 import 'package:warehouse/screens/create_import_screen.dart';
 import 'package:warehouse/screens/pending_import_screen.dart';
 import 'package:warehouse/screens/product_type_screen.dart';
+import 'package:warehouse/widgets/search_sheet.dart';
 import 'package:warehouse/widgets/sidebar_menu.dart';
 import 'package:warehouse/providers/locale_provider.dart';
 import 'package:warehouse/providers/navigation_provider.dart'; // Import NEW navigation provider
@@ -65,94 +66,102 @@ class AppContainer extends ConsumerWidget {
     final localizations = AppLocalizations.of(context)!;
 
     // استخدام switch على نوع الحالة بدلاً من when
-    switch (state) {
-      case MainSectionNavigationState():
-        // Get title for main sections
-        if (state.index >= 0 && state.index < _mainSectionContent.length) {
-          switch (state.index) {
-            case 0:
-              return localizations.get('dashboard');
-            case 1:
-              return localizations.get('warehouses');
-            case 2:
-              return localizations.get('products');
-            case 3:
-              return localizations.get('employees');
-            case 4:
-              return localizations.get('distribution_centers');
-            case 5:
-              return localizations.get('pending_imports');
-            case 6:
-              return localizations.get('Product Types');
-            // case 7:
-            //   return localizations.get('invoices');
-            case 8:
-              return localizations.get('suppliers');
-            // case 9:
-            //   return localizations.get('categories');
-            case 10:
-              return localizations.get('specializations');
-            // case 11:
-            //   return localizations.get('transport_tasks');
-            case 12:
-              return localizations.get('garage');
-            // TODO: Add case for settings if added (e.g., case 13)
-            default:
-              return localizations.get('app_title'); // Fallback
-          }
-        }
-        return localizations.get('app_title'); // Fallback
 
-      case CreateTaskNavigationState():
-        return localizations.get('create_new_task');
+    // Get title for main sections
+    // if (state.index >= 0 && state.index < _mainSectionContent.length) {
+    return switch (state) {
+      MainSectionNavigationState(index: 0) => localizations.get('dashboard'),
+      MainSectionNavigationState(index: 1) => localizations.get('warehouses'),
+      MainSectionNavigationState(index: 2) => localizations.get('products'),
+      MainSectionNavigationState(index: 3) => localizations.get('employees'),
+      MainSectionNavigationState(index: 4) =>
+        localizations.get('pending_imports'),
+      MainSectionNavigationState(index: 5) =>
+        localizations.get('product_types'),
+      MainSectionNavigationState(index: 6) => localizations.get('suppliers'),
+      MainSectionNavigationState(index: 7) =>
+        localizations.get('specializations'),
+      MainSectionNavigationState(index: 8) => localizations.get('garage'),
+      MainSectionNavigationState(index: 9) => localizations.get('Import'),
+      // --- Special Screens ---
+      WarehouseDetailsNavigationState() =>
+        localizations.get('warehouse_details_title'),
+      ProductDetailsNavigationState() =>
+        localizations.get('product_details_title'),
+      CreateTaskNavigationState() => localizations.get('create_new_task'),
+      _ => localizations.get('app_title'), // Fallback
 
-      case WarehouseDetailsNavigationState():
-        return localizations.get('warehouse_details_title') ??
-            'Warehouse Details';
+      // case CreateTaskNavigationState():
+      //   return localizations.get('create_new_task');
 
-      case ProductDetailsNavigationState():
-        return localizations.get('product_details_title') ?? 'Product Details';
-    }
+      // case WarehouseDetailsNavigationState():
+      //   return localizations.get('warehouse_details_title') ??
+      //       'Warehouse Details';
+
+      // case ProductDetailsNavigationState():
+      //   return localizations.get('product_details_title') ?? 'Product Details';
+    };
+  }
+
+  Widget _getPageContent(NavigationState state) {
+    return switch (state) {
+      MainSectionNavigationState(:final index) =>
+        (index >= 0 && index < _mainSectionContent.length)
+            ? IndexedStack(index: index, children: _mainSectionContent)
+            : Center(child: Text('Error: Unknown main section index $index')),
+      CreateTaskNavigationState() => const CreateTransportTaskScreen(),
+      WarehouseDetailsNavigationState(:final warehouseId) =>
+        WarehouseDetailScreen(
+          warehouse: Warehouse(
+            id: int.tryParse(warehouseId) ?? 0,
+            name: "Loading...",
+            location: "Loading...",
+          ),
+        ),
+      ProductDetailsNavigationState(:final productId) => ProductDetailsScreen(
+          productId: productId,
+        ),
+    };
   }
 
   // Helper to get the main content widget based on the current navigation state
-  Widget _getPageContent(NavigationState state) {
-    // استخدام switch على نوع الحالة بدلاً من when
-    switch (state) {
-      case MainSectionNavigationState():
-        // Display the content for the selected main section using IndexedStack
-        if (state.index >= 0 && state.index < _mainSectionContent.length) {
-          return IndexedStack(
-            index: state.index, // Use the index from the state
-            children: _mainSectionContent,
-          );
-        }
-        return Center(
-            child: Text(
-                'Error: Unknown main section index ${state.index}')); // Fallback
+//   Widget _getPageContent(NavigationState state) {
+//     // استخدام switch على نوع الحالة بدلاً من when
+//     switch (state) {
+//       case MainSectionNavigationState():
+//         // Display the content for the selected main section using IndexedStack
+//         if (state.index >= 0 && state.index < _mainSectionContent.length) {
+//           return IndexedStack(
+//             index: state.index, // Use the index from the state
+//             children: _mainSectionContent,
+//           );
+//         }
+//         return Center(
+//             child: Text(
+//                 'Error: Unknown main section index ${state.index}')); // Fallback
 
-      case CreateTaskNavigationState():
-        return const CreateTransportTaskScreen(); // Display Create Task screen
+//       case CreateTaskNavigationState():
+//         return const CreateTransportTaskScreen(); // Display Create Task screen
 
-      case WarehouseDetailsNavigationState():
-        return WarehouseDetailScreen(
-          warehouseId: int.tryParse(state.warehouseId) ?? 0,
-          warehouse: Warehouse(
-            id: int.tryParse(state.warehouseId) ?? 0, // تحويل آمن إلى int
-            name: "Loading...", // اسم مؤقت أفضل
-            location: "Loading...", // استخدام location بدلاً من address
-            // الحقول المحذوفة (address, manager, productIds, occupied) تم إزالتها
-          ),
-        );
+//       case WarehouseDetailsNavigationState():
+//         return WarehouseDetailScreen(
+//           warehouseId: int.tryParse(state.warehouseId) ?? 0,
+//           warehouse: Warehouse(
+//             id: int.tryParse(state.warehouseId) ?? 0, // تحويل آمن إلى int
+//             name: "Loading...", // اسم مؤقت أفضل
+//             location: "Loading...", // استخدام location بدلاً من address
+//             // الحقول المحذوفة (address, manager, productIds, occupied) تم إزالتها
+//           ),
+//         );
 
-//Display Warehouse Details screen
+// //Display Warehouse Details screen
 
-      case ProductDetailsNavigationState():
-        return ProductDetailsScreen(
-          productId: state.productId,
-        ); // Display Product Details screen
-    }
-  }
+//       case ProductDetailsNavigationState():
+//         return ProductDetailsScreen(
+//           productId: state.productId,
+//         ); // Display Product Details screen
+//     }
+//   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -197,10 +206,23 @@ class AppContainer extends ConsumerWidget {
           // Only show search/notifications/user icon when in a main section view
           if (currentNavigationState is MainSectionNavigationState) ...[
             IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () {
-                  print("Search pressed");
-                }),
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                showSearchSheet(
+                  context,
+                  // اختيارياً: فلتر مبدئي واستعلام مبدئي
+                  initialFilterKey: 'Product',
+                  initialQuery: '',
+                  onOpenResult: (filter, item) {
+                    // هنا تفتح شاشة التفاصيل المناسبة حسب نوع الفلتر
+                    // مثال سريع:
+                    if (filter == 'Product' && item.id != null) {
+                      // Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(id: item.id!)));
+                    }
+                  },
+                );
+              },
+            ),
             IconButton(
                 icon: const Icon(Icons.notifications_none),
                 onPressed: () {
